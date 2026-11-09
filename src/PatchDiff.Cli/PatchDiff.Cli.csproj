@@ -8,11 +8,12 @@
     <RootNamespace>PatchDiff.Cli</RootNamespace>
     <AssemblyName>patchdiff</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>0.2.0</Version>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DllCompare.Core\DllCompare.Core.csproj" />
+    <ProjectReference Include="..\PatchDiff.Core\PatchDiff.Core.csproj" />
   </ItemGroup>
 
 </Project>

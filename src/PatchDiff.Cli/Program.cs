@@ -1,5 +1,5 @@
-using DllCompare.Models;
-using DllCompare.Services;
+using PatchDiff.Models;
+using PatchDiff.Services;
 
 return await PatchDiffCli.RunAsync(args);
 

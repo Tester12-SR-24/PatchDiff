@@ -1,12 +1,12 @@
 using System.IO;
 using System.Security.Cryptography;
-using DllCompare.Models;
+using PatchDiff.Models;
 using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
 
-namespace DllCompare.Services;
+namespace PatchDiff.Services;
 
 /// <summary>
 /// Builds an <see cref="AssemblySnapshot"/> (one decompiled C# source per top-level type)

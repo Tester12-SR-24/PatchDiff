@@ -64,7 +64,7 @@ updates, an activity log, and a side-by-side colored diff viewer
 
 ```bash
 dotnet build                      # PatchDiff.sln: Core + CLI + WPF app
-dotnet run --project src/DllCompare.Cli -- compare a.dll b.dll
+dotnet run --project src/PatchDiff.Cli -- compare a.dll b.dll
 ```
 
 Requires the .NET 8 SDK.

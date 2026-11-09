@@ -2,13 +2,13 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using DllCompare.Models;
+using PatchDiff.Models;
 
-namespace DllCompare.Services;
+namespace PatchDiff.Services;
 
 /// <summary>
 /// Persists one baseline snapshot per watched DLL under
-/// %LOCALAPPDATA%\DllCompare\Snapshots\&lt;key&gt;\manifest.json
+/// %LOCALAPPDATA%\PatchDiff\Snapshots\&lt;key&gt;\manifest.json
 /// </summary>
 public sealed class SnapshotStore
 {

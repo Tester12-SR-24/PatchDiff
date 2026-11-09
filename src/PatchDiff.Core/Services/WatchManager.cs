@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using DllCompare.Models;
+using PatchDiff.Models;
 
-namespace DllCompare.Services;
+namespace PatchDiff.Services;
 
 /// <summary>One watched DLL and its watcher plumbing.</summary>
 public sealed class WatchedDll : System.ComponentModel.INotifyPropertyChanged

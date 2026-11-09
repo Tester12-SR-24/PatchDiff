@@ -1,4 +1,4 @@
-namespace DllCompare.Models;
+namespace PatchDiff.Models;
 
 public enum ChangeKind
 {

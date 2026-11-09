@@ -4,17 +4,17 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using DllCompare.Models;
-using DllCompare.Services;
+using PatchDiff.Models;
+using PatchDiff.Services;
 using Microsoft.Win32;
 
-namespace DllCompare;
+namespace PatchDiff;
 
 public partial class MainWindow : Window
 {
     static readonly string SettingsFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "DllCompare", "settings.json");
+        "PatchDiff", "settings.json");
 
     readonly WatchManager _mgr = WatchManager.Instance;
     readonly ObservableCollection<string> _logLines = new();
@@ -210,7 +210,7 @@ public partial class MainWindow : Window
         if (diff.HasChanges)
             new DiffWindow(diff).Show();
         else
-            MessageBox.Show(this, "No type changes detected between the two assemblies.", "DllCompare");
+            MessageBox.Show(this, "No type changes detected between the two assemblies.", "PatchDiff");
     }
 
     void OnOpenReports(object sender, RoutedEventArgs e)

@@ -6,15 +6,15 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>DllCompare</RootNamespace>
-    <AssemblyName>DllCompare</AssemblyName>
+    <RootNamespace>PatchDiff</RootNamespace>
+    <AssemblyName>PatchDiff</AssemblyName>
     <Product>PatchDiff</Product>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DllCompare.Core\DllCompare.Core.csproj" />
+    <ProjectReference Include="..\PatchDiff.Core\PatchDiff.Core.csproj" />
   </ItemGroup>
 
 </Project>

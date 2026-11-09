@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
-namespace DllCompare;
+namespace PatchDiff;
 
 /// <summary>
 /// True (collection HasItems) → Collapsed; false → Visible. Used for empty-state hints.

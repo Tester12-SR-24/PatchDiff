@@ -1,9 +1,9 @@
 using System.IO;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
-using DllCompare.Models;
+using PatchDiff.Models;
 
-namespace DllCompare.Services;
+namespace PatchDiff.Services;
 
 public sealed class DiffRow
 {

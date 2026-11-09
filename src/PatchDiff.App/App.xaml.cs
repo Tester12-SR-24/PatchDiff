@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace DllCompare;
+namespace PatchDiff;
 
 public partial class App : Application
 {

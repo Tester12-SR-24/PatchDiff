@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using DllCompare.Models;
-using DllCompare.Services;
+using PatchDiff.Models;
+using PatchDiff.Services;
 
-namespace DllCompare;
+namespace PatchDiff;
 
 public partial class DiffWindow : Window
 {
