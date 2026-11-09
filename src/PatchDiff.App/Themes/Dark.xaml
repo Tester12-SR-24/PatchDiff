@@ -410,12 +410,24 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">
                     <Grid>
+                        <ToggleButton x:Name="ToggleButton" Focusable="False" ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="Transparent"/>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
                         <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1" CornerRadius="6" SnapsToDevicePixels="True">
+                                BorderThickness="1" CornerRadius="6" SnapsToDevicePixels="True" IsHitTestVisible="False">
                             <DockPanel Margin="{TemplateBinding Padding}">
                                 <TextBlock DockPanel.Dock="Right" Text="▼" FontSize="9" Foreground="{StaticResource TextDimBrush}"
                                            VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0"/>
-                                <ContentPresenter ContentSource="ContentSite" VerticalAlignment="Center"/>
+                                <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                  VerticalAlignment="Center" HorizontalAlignment="Left"
+                                                  IsHitTestVisible="False"/>
                             </DockPanel>
                         </Border>
                         <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
