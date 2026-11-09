@@ -8,68 +8,38 @@ permissions:
   contents: write
 
 jobs:
-  cli:
-    strategy:
-      matrix:
-        include:
-          - { os: windows-latest, rid: win-x64,   ext: zip,     archive: zip }
-          - { os: ubuntu-latest,  rid: linux-x64, ext: tar.gz,  archive: tar.gz }
-          - { os: macos-latest,   rid: osx-arm64, ext: tar.gz,  archive: tar.gz }
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-      - name: Publish CLI (self-contained single file)
-        run: >
-          dotnet publish src/DllCompare.Cli -c Release -r ${{ matrix.rid }}
-          --self-contained true
-          -p:PublishSingleFile=true -p:PublishTrimmed=false
-          -o dist/${{ matrix.rid }}
-      - name: Archive
-        shell: pwsh
-        run: |
-          if ('${{ matrix.archive }}' -eq 'zip') {
-            Compress-Archive -Path "dist/${{ matrix.rid }}/patchdiff*" -DestinationPath "patchdiff-${{ matrix.rid }}.zip"
-          } else {
-            tar -czf "patchdiff-${{ matrix.rid }}.tar.gz" -C "dist/${{ matrix.rid }}" patchdiff*
-          }
-      - uses: actions/upload-artifact@v4
-        with:
-          name: patchdiff-${{ matrix.rid }}
-          path: patchdiff-${{ matrix.rid }}.*
-
-  app:
+  build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Publish CLI (self-contained single file)
+        run: >
+          dotnet publish src/DllCompare.Cli -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true -p:PublishTrimmed=false
+          -o dist/cli
+
       - name: Publish WPF app (self-contained single file)
         run: >
           dotnet publish src/DllCompare -c Release -r win-x64
           --self-contained true
           -p:PublishSingleFile=true -p:PublishTrimmed=false
           -o dist/app
+
       - name: Archive
         shell: pwsh
-        run: Compress-Archive -Path "dist/app/*" -DestinationPath "PatchDiff-app-win-x64.zip"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: PatchDiff-app-win-x64
-          path: PatchDiff-app-win-x64.zip
+        run: |
+          Compress-Archive -Path "dist/cli/*" -DestinationPath "patchdiff-win-x64.zip"
+          Compress-Archive -Path "dist/app/*" -DestinationPath "PatchDiff-app-win-x64.zip"
 
-  release:
-    needs: [cli, app]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
-          path: dist
-      - uses: softprops/action-gh-release@v2
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: dist/*
+          files: |
+            patchdiff-win-x64.zip
+            PatchDiff-app-win-x64.zip
