@@ -195,6 +195,31 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
     }
 
+    // ---------- assembly explorer (ILSpy assembly-tree port) ----------
+
+    void OnBrowse(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is WatchedDll w)
+            Browse(w);
+    }
+
+    void OnCardDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if ((e.OriginalSource as FrameworkElement)?.DataContext is WatchedDll w)
+            Browse(w);
+    }
+
+    void Browse(WatchedDll w)
+    {
+        var snap = SnapshotStore.Load(w.Path);
+        if (snap is null)
+        {
+            AddLog($"No snapshot yet for {w.Name} — wait for the first analysis to finish.");
+            return;
+        }
+        new AssemblyExplorerWindow(snap) { Owner = this }.Show();
+    }
+
     // ---------- reload all + check for updates (ILSpy UpdateService port) ----------
 
     void OnReloadAll(object sender, RoutedEventArgs e)
@@ -343,6 +368,7 @@ public partial class MainWindow : Window
         _mgr.DiffProduced += (w, diff) => Dispatcher.BeginInvoke(() =>
         {
             _lastDiffs[w.Path] = diff;
+            _baselineCache.Remove(w.Path); // snapshot changed → reload on next search/browse
             AddEvent("patched", "GAME PATCHED",
                 $"{w.Name} rewritten on disk → auto-diff completed ({diff.Added + diff.Removed + diff.Modified} type changes) → report saved");
             UpdateFooter();

@@ -225,7 +225,7 @@ public sealed class WatchManager : IDisposable
             // Fast path: file identical to the stored baseline (e.g. app restart,
             // PC reboot) — no decompilation needed.
             var oldSnap = SnapshotStore.Load(w.Path);
-            if (oldSnap is not null && oldSnap.Sha256 == sha)
+            if (oldSnap is not null && oldSnap.Sha256 == sha && oldSnap.SchemaVersion >= AssemblySnapshot.CurrentSchemaVersion)
             {
                 w.ShaShort = sha;
                 w.AssemblyVersion = oldSnap.AssemblyVersion;
@@ -247,6 +247,18 @@ public sealed class WatchManager : IDisposable
             w.AssemblyVersion = newSnap.AssemblyVersion;
             w.Meta1 = $"v{newSnap.AssemblyVersion} · {newSnap.Types.Count} types";
             w.ShaShort = sha;
+
+            // Same file, but the baseline predates the current snapshot schema
+            // (e.g. no member signatures) — silently upgrade the baseline.
+            if (oldSnap is not null && oldSnap.Sha256 == newSnap.Sha256)
+            {
+                SnapshotStore.Save(newSnap);
+                w.Status = "Baseline upgraded";
+                w.PillKind = "ok";
+                w.PillText = "UP TO DATE";
+                Log($"Upgraded baseline snapshot for {w.Name} to the current format (member view now available).");
+                return;
+            }
 
             if (oldSnap is null)
             {

@@ -65,7 +65,70 @@ public sealed class DecompilerService
             {
                 source = $"// Decompilation failed for {def.FullName}: {ex.Message}";
             }
-            types.Add(new TypeSource { FullName = def.FullName, Source = source });
+    
+        // Collect short member signatures for the assembly explorer tree.
+        List<string>? signatures = null;
+        try
+        {
+            signatures = new List<string>();
+            string Short(string? fullName)
+            {
+                if (string.IsNullOrEmpty(fullName))
+                    return "?";
+                var name = fullName;
+                var dot = name.LastIndexOf('.');
+                if (dot >= 0)
+                    name = name[(dot + 1)..];
+                var tick = name.IndexOf('`');
+                if (tick > 0)
+                    name = name[..tick];
+                return name;
+            }
+            static string Acc(IEntity m) => m.Accessibility switch
+            {
+                Accessibility.Public => "public",
+                Accessibility.Protected => "protected",
+                Accessibility.Internal => "internal",
+                Accessibility.ProtectedOrInternal => "protected internal",
+                Accessibility.ProtectedAndInternal => "private protected",
+                Accessibility.Private => "private",
+                _ => "",
+            };
+
+            var eventNames = new HashSet<string>(def.Events.Select(ev => ev.Name), StringComparer.Ordinal);
+            foreach (var f in def.Fields)
+            {
+                if (f.Name.StartsWith("<") || eventNames.Contains(f.Name))
+                    continue; // skip compiler-generated backing fields of field-like events
+                signatures.Add($"{Acc(f)} {Short(f.ReturnType.FullName)} {f.Name};");
+            }
+            foreach (var pr in def.Properties)
+            {
+                if (pr.Name.StartsWith("<"))
+                    continue;
+                signatures.Add($"{Acc(pr)} {Short(pr.ReturnType.FullName)} {pr.Name} {{ get; set; }}");
+            }
+            foreach (var m in def.Methods)
+            {
+                if (m.Name.StartsWith("<"))
+                    continue;
+                var pars = string.Join(", ", m.Parameters.Select(pa => $"{Short(pa.Type.FullName)} {pa.Name}"));
+                var ret = m.IsConstructor ? "" : Short(m.ReturnType.FullName) + " ";
+                signatures.Add($"{Acc(m)} {ret}{m.Name}({pars});");
+            }
+            foreach (var ev in def.Events)
+            {
+                if (ev.Name.StartsWith("<"))
+                    continue;
+                signatures.Add($"{Acc(ev)} event {Short(ev.ReturnType.FullName)} {ev.Name};");
+            }
+        }
+        catch
+        {
+            signatures = null; // fall back to types-only tree
+        }
+        types.Add(new TypeSource { FullName = def.FullName, Source = source, Signatures = signatures });
+
         }
 
         return new AssemblySnapshot
@@ -74,6 +137,7 @@ public sealed class DecompilerService
             Sha256 = sha,
             AssemblyVersion = version,
             CapturedUtc = DateTime.UtcNow,
+            SchemaVersion = AssemblySnapshot.CurrentSchemaVersion,
             Types = types,
         };
     }

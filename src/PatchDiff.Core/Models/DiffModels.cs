@@ -13,15 +13,21 @@ public sealed class TypeSource
 {
     public string FullName { get; set; } = "";
     public string Source { get; set; } = "";
+
+    /// <summary>Short member signatures (fields/properties/methods/events) for the assembly explorer tree.</summary>
+    public List<string>? Signatures { get; set; }
 }
 
 /// <summary>A point-in-time decompilation of a whole assembly (all top-level types).</summary>
 public sealed class AssemblySnapshot
 {
+    public const int CurrentSchemaVersion = 2;
+
     public string AssemblyPath { get; set; } = "";
     public string Sha256 { get; set; } = "";
     public string AssemblyVersion { get; set; } = "";
     public DateTime CapturedUtc { get; set; }
+    public int SchemaVersion { get; set; }
     public List<TypeSource> Types { get; set; } = new();
 }
 

@@ -176,7 +176,8 @@
                               Margin="0,0,0,12">
                     <Grid>
                         <ListBox x:Name="CardsList" BorderThickness="0" Background="Transparent"
-                                 SelectionMode="Extended">
+                                 SelectionMode="Extended"
+                                 MouseDoubleClick="OnCardDoubleClick">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel/>
@@ -213,8 +214,8 @@
                             </ItemsControl.ItemContainerStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Width="330" Background="#26262b" BorderBrush="#38383f"
-                                        BorderThickness="1" CornerRadius="9" Padding="13" Margin="0,0,12,12">
+                                <Border Width="330" Height="164" Background="#26262b" BorderBrush="#38383f"
+                                        BorderThickness="1" CornerRadius="9" Padding="13,11" Margin="0,0,12,12">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
@@ -224,15 +225,18 @@
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Text="{Binding Meta1}" FontSize="11" Foreground="#9a9aa4" Margin="0,3,0,0"/>
-                                        <TextBlock Text="{Binding ChangeSummary}" FontSize="11" Foreground="#c9a34e"/>
-                                        <TextBlock Text="{Binding Status}" FontSize="10.5" Foreground="#6f6f79" Margin="0,3,0,0"/>
+                                        <TextBlock Text="{Binding ChangeSummary}" FontSize="11" Foreground="#c9a34e"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Status}" FontSize="10.5" Foreground="#6f6f79" Margin="0,3,0,0"
+                                                   TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Text="{Binding Path}" FontSize="10" Foreground="#6f6f79"
                                                    TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
                                                    ToolTip="{Binding Path}"/>
                                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                             <Button Content="Open diff" Click="OnOpenDiff" Padding="9,3"/>
                                             <Button Content="HTML report" Click="OnOpenReport" Padding="9,3"/>
-                                            <Button Content="⤓ Sources" Click="OnExportSources" Padding="9,3"/>
+                                            <Button Content="▸ Browse" Click="OnBrowse" Padding="8,3"/>
+                                            <Button Content="↓ Sources" Click="OnExportSources" Padding="8,3"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
