@@ -26,60 +26,8 @@ public partial class DiffView : UserControl
         ShaRun.Text = $"baseline {diff.OldSha}… → current {diff.NewSha}…";
         TypesList.ItemsSource = diff.TypeDiffs;
         FilterBox.TextChanged += (_, _) => ApplyFilter();
-        BuildIntelPanel(diff.Intelligence);
         if (diff.TypeDiffs.Count > 0)
             TypesList.SelectedIndex = 0;
-    }
-
-    void BuildIntelPanel(PatchSummary? intel)
-    {
-        if (intel is null)
-        {
-            IntelPanel.Children.Add(new TextBlock
-            {
-                Text = "No intelligence data for this comparison.",
-                Foreground = System.Windows.Media.Brushes.Gray,
-                TextWrapping = TextWrapping.Wrap,
-            });
-            return;
-        }
-
-        void AddCard(string title, string body)
-        {
-            IntelPanel.Children.Add(new TextBlock
-            {
-                Text = title,
-                Foreground = System.Windows.Media.Brushes.DimGray,
-                Margin = new Thickness(2, 12, 0, 4),
-            });
-            IntelPanel.Children.Add(new System.Windows.Controls.Border
-            {
-                Background = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#232327")),
-                BorderBrush = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#38383f")),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(8),
-                Child = new TextBlock { Text = body, TextWrapping = TextWrapping.Wrap, LineHeight = 20 },
-            });
-        }
-
-        if (intel.PlainTerms.Count > 0)
-            AddCard("IN PLAIN TERMS", string.Join("\n", intel.PlainTerms.Select(t => "• " + t)));
-
-        if (intel.Numbers.Count > 0)
-        {
-            var body = string.Join("\n", intel.Numbers.Take(12).Select(n =>
-                $"{n.Member}\n    {n.OldText} → {n.NewText}  [{n.Direction} {Math.Abs(n.PercentDelta):0.#}%]"));
-            AddCard($"NUMBER CHANGES ({intel.Numbers.Count})", body);
-        }
-
-        if (intel.Heat.Count > 0)
-        {
-            var body = string.Join("\n", intel.Heat.Take(6).Select(h => $"{h.Namespace} — {h.Count} ({h.Share:0}%)"));
-            AddCard("MOST TOUCHED", body);
-        }
     }
 
     void ApplyFilter()

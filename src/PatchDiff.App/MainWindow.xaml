@@ -76,7 +76,8 @@
                 <!-- left rail -->
                 <DockPanel Grid.Column="0" Margin="10,8,0,0">
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <TextBox x:Name="SearchBox" TextChanged="OnSearchChanged" VerticalContentAlignment="Center"/>
+                        <TextBox x:Name="SearchBox" TextChanged="OnSearchChanged" VerticalContentAlignment="Center"
+                            AutomationProperties.Name="Search .cs files"/>
                         <TextBlock Text="🔍 Search .cs files…" Foreground="#6f6f79" FontSize="12" Margin="8,0,0,0"
                                    VerticalAlignment="Center" IsHitTestVisible="False">
                             <TextBlock.Style>
@@ -106,15 +107,14 @@
                                 <StackPanel Margin="2" Orientation="Horizontal">
                                     <Image Source="icon.ico" Width="18" Height="18" Margin="0,0,7,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                    <Border Background="#8a6d1f" CornerRadius="9" Padding="7,1" Margin="8,0,0,0"
-                                            VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding PillText}" FontSize="10" Foreground="#ffe9a8"/>
+                                    <Border Style="{StaticResource PillBorder}">
+                                        <TextBlock Text="{Binding PillText}" Style="{StaticResource PillText}"/>
                                     </Border>
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,0">
+                    <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,0">
                         <Button Content="↻ Re-check" Click="OnRecheck" Padding="7,3" FontSize="11"/>
                         <Button Content="Diff" Click="OnOpenDiff" Padding="7,3" FontSize="11" ToolTip="Open the latest diff"/>
                         <Button Content="Browse" Click="OnBrowse" Padding="7,3" FontSize="11"/>
@@ -124,7 +124,7 @@
                         <Button Content="Report" Click="OnOpenReport" Padding="7,3" FontSize="11"/>
                         <Button Content="🗑 Remove" Click="OnRemoveWatch" Padding="7,3" FontSize="11"/>
                         <Button Content="× All" Click="OnRemoveAll" Padding="7,3" FontSize="11"/>
-                    </StackPanel>
+                    </WrapPanel>
                     <TextBlock DockPanel.Dock="Top" Text="TIMELINE" Style="{StaticResource SectionHeader}"/>
                     <ListBox x:Name="TimelineList" BorderThickness="0" Background="Transparent"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">

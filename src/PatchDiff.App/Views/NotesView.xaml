@@ -16,7 +16,19 @@
                         <Border Background="{Binding ChangedBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,8,0">
                             <TextBlock Text="{Binding StatusText}" FontSize="10"/>
                         </Border>
-                        <TextBlock Text="{Binding TypeName}" FontFamily="Consolas" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding TypeName}" FontFamily="Consolas" FontWeight="SemiBold" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                                            <Setter Property="FontStyle" Value="Italic"/>
+                                            <Setter Property="Foreground" Value="#6f6f79"/>
+                                            <Setter Property="FontWeight" Value="Normal"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>

@@ -6,6 +6,21 @@
              TextElement.Foreground="#e6e6e6">
     <UserControl.Resources>
         <local:KindToBrushConverter x:Key="DiffBrush"/>
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="Background" Value="#26262b"/>
+            <Setter Property="Foreground" Value="#9a9aa9"/>
+            <Setter Property="BorderBrush" Value="#33333a"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GridViewColumnHeader">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="0,0,1,1" Padding="8,5">
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <DockPanel>
@@ -23,11 +38,9 @@
 
         <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="290"/>
+            <ColumnDefinition Width="250"/>
             <ColumnDefinition Width="4"/>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="4"/>
-            <ColumnDefinition Width="250"/>
         </Grid.ColumnDefinitions>
 
         <DockPanel Grid.Column="0" Margin="0,10,0,0">
@@ -60,7 +73,7 @@
                       FontFamily="Consolas" FontSize="12">
                 <ListView.View>
                     <GridView AllowsColumnReorder="False">
-                        <GridViewColumn Header="Previous version" Width="480">
+                        <GridViewColumn Header="Previous version" Width="380">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding OldText}" Padding="5,0" Margin="-5,0" MinHeight="17"
@@ -68,7 +81,7 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="New version" Width="480">
+                        <GridViewColumn Header="New version" Width="380">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding NewText}" Padding="5,0" Margin="-5,0" MinHeight="17"
@@ -81,12 +94,6 @@
             </ListView>
         </DockPanel>
 
-        <DockPanel Grid.Column="4" Margin="0,10,10,10">
-            <TextBlock DockPanel.Dock="Top" Text="🧠 THIS PATCH" FontSize="11" Foreground="#8a8a95" Margin="2,0,0,6"/>
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel x:Name="IntelPanel"/>
-            </ScrollViewer>
-        </DockPanel>
     </Grid>
     </DockPanel>
 </UserControl>

@@ -16,6 +16,7 @@ public sealed class PinRow
     public string TypeName => Entry.TypeName;
     public string StatusText { get; init; } = "tracked";
     public Brush ChangedBrush { get; init; } = new SolidColorBrush(Color.FromRgb(0x27, 0x4a, 0x33));
+    public bool IsPlaceholder { get; init; }
 }
 
 public partial class NotesView : UserControl
@@ -57,7 +58,7 @@ public partial class NotesView : UserControl
         PinList.ItemsSource = _rows;
         if (_rows.Count == 0)
         {
-            PinList.ItemsSource = new[] { new PinRow { Entry = new PinEntry { TypeName = "(no pins yet — use ★ Pin in the Browse tab)" } } };
+            PinList.ItemsSource = new[] { new PinRow { Entry = new PinEntry { TypeName = "(no pins yet — use ★ Pin in the Browse tab)" }, IsPlaceholder = true } };
             NoteBox.IsEnabled = false;
         }
         else

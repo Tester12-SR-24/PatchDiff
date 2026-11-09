@@ -101,6 +101,7 @@ public partial class MainWindow : Window
         });
         while (Timeline.Count > 250)
             Timeline.RemoveAt(Timeline.Count - 1);
+        UpdateFooter();
     }
 
     void AddLog(string line)
@@ -131,7 +132,11 @@ public partial class MainWindow : Window
     {
         readonly Action<object?> _execute;
         public RelayCommand(Action<object?> execute) => _execute = execute;
-        public event EventHandler? CanExecuteChanged;
+        public event EventHandler? CanExecuteChanged
+        {
+            add { }
+            remove { }
+        }
         public bool CanExecute(object? parameter) => true;
         public void Execute(object? parameter) => _execute(parameter);
     }
@@ -213,9 +218,9 @@ public partial class MainWindow : Window
         AddTab($"History — {w.Name}", view);
     }
 
-    void OpenNotesTab(WatchedDll w)
+    void OpenNotesTab(WatchedDll? w)
     {
-        AddTab($"Notes — {w.Name}", new NotesView(w));
+        AddTab(w is null ? "Notes" : $"Notes — {w.Name}", new NotesView(w));
     }
 
     void UpdateIntelRail(PatchSummary? summary) => IntelPanelBuilder.Build(IntelRail, summary);
@@ -379,7 +384,7 @@ public partial class MainWindow : Window
         AddLog($"Re-checking {w.Name}…");
     }
 
-    void OnReloadAll(object sender, RoutedEventArgs e)
+    void OnReloadAll(object? sender, RoutedEventArgs? e)
     {
         if (_mgr.Watched.Count == 0)
         {
@@ -391,7 +396,7 @@ public partial class MainWindow : Window
         AddLog($"Reloading all {_mgr.Watched.Count} watched DLLs…");
     }
 
-    void OnReloadAllExecuted(object sender, ExecutedRoutedEventArgs e) => OnReloadAll(sender, e);
+    void OnReloadAllExecuted(object? sender, ExecutedRoutedEventArgs? e) => OnReloadAll(sender, e);
 
     void OnCompareTwo(object sender, RoutedEventArgs e)
     {
@@ -413,7 +418,7 @@ public partial class MainWindow : Window
             MessageBox.Show(this, "No type changes detected between the two assemblies.", "PatchDiff");
     }
 
-    void OnOpenReports(object sender, RoutedEventArgs e)
+    void OnOpenReports(object? sender, RoutedEventArgs? e)
     {
         Directory.CreateDirectory(SnapshotStore.ReportsRoot);
         Process.Start(new ProcessStartInfo(SnapshotStore.ReportsRoot) { UseShellExecute = true });
@@ -819,7 +824,7 @@ public partial class MainWindow : Window
         return key?.GetValue(RunValueName) is not null;
     }
 
-    void OnToggleAutoStart(object sender, RoutedEventArgs e)
+    void OnToggleAutoStart(object? sender, RoutedEventArgs? e)
     {
         if (_trayAutoStartItem is not null && _trayAutoStartItem.Checked != AutoStartItem.IsChecked)
         {
