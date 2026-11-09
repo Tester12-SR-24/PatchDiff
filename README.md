@@ -193,6 +193,10 @@ The desktop app is a **workstation shell**:
   own BCL), falling back to the .NET Framework 4.x directories.
 - Only top-level types are tracked individually; nested types ride along in their parent.
 - The GUI is Windows-only (WPF); the CLI also runs on Linux and macOS.
+- All data (snapshots, reports, revision archive, settings, pins) lives under
+  `%LOCALAPPDATA%\PatchDiff`. Set the `PATCHDIFF_DATA_DIR` environment variable to redirect
+  the entire data root anywhere else — useful for portable installs, demo setups, or running
+  multiple isolated instances side by side.
 
 ## Building blocks
 
