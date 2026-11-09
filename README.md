@@ -7,8 +7,8 @@
 **Watch .NET / Unity-game DLLs — get a decompiled diff every time they're patched.**
 
 Decompiles with the ILSpy engine · snapshot baselines · automatic patch detection ·
-workstation UI (rail ▸ tabs ▸ intel rail) · pins & notes · revision archive with history,
-blame & restore · patch intelligence · HTML diff reports · GUI and CLI.
+workstation UI (rail ▸ tabs ▸ intel rail) · pins & notes · revision archive with labels,
+a revision matrix, history, blame & restore · patch intelligence · demo mode · HTML diff reports · GUI and CLI.
 
 *Licensed under the [WTFPL](#license) — do what the fuck you want to.*
 
@@ -53,6 +53,13 @@ decompiled source — without ever touching the game files themselves.
   member-by-member to see exactly when each member changed and in which version.
 - **Pins & notes** — pin types across patches and keep a persistent note on each; entries
   light up with a *changed this patch* chip whenever their type is touched by a new patch.
+- **Revision labels** — name any archived revision (e.g. "Season 4 launch", "hotfix #2");
+  labels persist per data root and show up in History and the revision matrix.
+- **Revision matrix** — a grid of every archived revision of a DLL; click any cell to lazily
+  compute that exact pair's diff, click again to open it — compare any two versions, not just
+  neighbors.
+- **Demo mode** — try the whole watch → patch → diff flow on a bundled sample assembly;
+  demo sessions run entirely in memory and never touch your real games or persist anything.
 - **Settings** — tray balloon alerts, watch poll interval, revision retention (keep all / last
   10 / 50 / 100), and start-minimized-to-tray.
 - **HTML reports** — self-contained, start-collapsed diff reports for every detected patch,
@@ -150,9 +157,9 @@ The desktop app is a **workstation shell**:
   the source directly), your watched assemblies with live status pills
   (`UP TO DATE` / `ANALYZING…` / `NEW BASELINE` / `UPDATED`), and a per-patch timeline.
 - **Center tabs** — an Overview tab, plus closable **Browse** (assembly explorer), **Diff**
-  (side-by-side colored diff), **History** (revision archive: compare any two versions,
-  restore old builds) and **Notes** (pins + persistent notes with *changed this patch*
-  chips) tabs — one per assembly or diff you open.
+  (side-by-side colored diff), **History** (revision archive: label any version, compare any
+  two via the **revision matrix**, restore old builds) and **Notes** (pins + persistent notes
+  with *changed this patch* chips) tabs — one per assembly or diff you open.
 - **Right intel rail** — the patch-intelligence readout for the selected diff: plain-terms
   summary, namespace heat, and buff/nerf number changes.
 - Toolbar actions cover adding DLLs or a whole `…_Data/Managed` folder, re-checking,
