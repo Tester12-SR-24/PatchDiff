@@ -150,6 +150,7 @@ public sealed class WatchManager : IDisposable
                 var newSnap = _decompiler.Build(newPath, Report);
                 var oldSnap = _decompiler.Build(oldPath);
                 var diff = _diff.Compare(oldSnap, newSnap, title: $"{Path.GetFileName(oldPath)} → {Path.GetFileName(newPath)}");
+                diff.Intelligence = DiffIntelligence.Analyze(diff);
                 if (diff.HasChanges)
                 {
                     var report = SnapshotStore.WriteHtmlReport(diff);

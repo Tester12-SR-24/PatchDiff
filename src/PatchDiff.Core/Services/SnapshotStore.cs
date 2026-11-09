@@ -99,7 +99,7 @@ details.type>summary:hover{background:#f6f8fa}
 details[open]>summary .arrow{transform:rotate(90deg)}
 .badge{font-size:11px;font-weight:500;padding:1px 8px;border-radius:9px;font-family:Segoe UI,sans-serif}
 .b-add{background:#d4f8d4;color:#116329}.b-rem{background:#ffdce0;color:#cf222e}
-.b-mod{background:#fff3cd;color:#7d5b00}.b-same{background:#eaeef2;color:#57606a}
+.b-mod{background:#fff3cd;color:#7d5b00}.b-same{background:#eaeef2;color:#57606a}.mono{font-family:Consolas,monospace}
 table{border-collapse:collapse;width:100%;font-size:12px;margin-top:2px}
 td{vertical-align:top;padding:1px 6px;white-space:pre-wrap;width:50%;border:1px solid #e1e4e8}
 td.o{background:#ffeef0;border-left:4px solid #f66a0a}
@@ -109,6 +109,22 @@ td.same{background:#fff}
         sb.Append("</style></head><body>");
         sb.Append($"<h2>{Escape(diff.Title)}</h2>");
         sb.Append($"<p class=\"summary\">+{diff.Added} added &nbsp; −{diff.Removed} removed &nbsp; ~{diff.Modified} modified</p>");
+        if (diff.Intelligence is { } intel)
+        {
+            if (intel.PlainTerms.Count > 0)
+            {
+                sb.Append("<p class=\"summary\"><b>In plain terms:</b><br>");
+                foreach (var term in intel.PlainTerms)
+                    sb.Append("• " + Escape(term) + "<br>");
+                sb.Append("</p>");
+            }
+            if (intel.Numbers.Count > 0)
+            {
+                sb.Append("<p class=\"summary\"><b>Number changes ({0}):</b></p>".Replace("{0}", intel.Numbers.Count.ToString()));
+                foreach (var n in intel.Numbers.Take(20))
+                    sb.Append($"<p class=\"summary\" style=\"margin:2px 0\"><span class=\"mono\">{Escape(n.Type)}.{Escape(n.Member)}</span> &nbsp;{Escape(n.OldText)} → {Escape(n.NewText)} <b>{Escape(n.Direction)} {Math.Abs(n.PercentDelta):0.#}%</b></p>");
+            }
+        }
         sb.Append("<p class=\"toolbar\"><button onclick=\"document.querySelectorAll('details.type').forEach(d=>d.open=true)\">Expand all</button>"
                   + "<button onclick=\"document.querySelectorAll('details.type').forEach(d=>d.open=false)\">Collapse all</button></p>");
 

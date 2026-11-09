@@ -35,8 +35,14 @@ public partial class AssemblyExplorerWindow : Window
         Loaded += async (_, _) =>
         {
             var snap = _snapshot;
-            var root = await System.Threading.Tasks.Task.Run(() => BuildTree(snap));
+            var (root, firstType) = await System.Threading.Tasks.Task.Run(() => BuildTree(snap));
             TypeTree.ItemsSource = new[] { root };
+            root.IsExpanded = true;
+            if (firstType is not null)
+            {
+                TypeTree.UpdateLayout();
+                TypeTree.SelectItem(firstType);
+            }
         };
     }
 
@@ -54,8 +60,9 @@ public partial class AssemblyExplorerWindow : Window
         return name;
     }
 
-    static ExplorerNode BuildTree(AssemblySnapshot snapshot)
+    static (ExplorerNode root, ExplorerNode? firstType) BuildTree(AssemblySnapshot snapshot)
     {
+        ExplorerNode? firstType = null;
         var root = new ExplorerNode
         {
             Kind = "Assembly",
@@ -127,13 +134,14 @@ public partial class AssemblyExplorerWindow : Window
                     AddGroup("\u26a1 Events", events);
                 }
 
+                firstType ??= typeNode;
                 nsNode.Children.Add(typeNode);
             }
 
             root.Children.Add(nsNode);
         }
 
-        return root;
+        return (root, firstType);
     }
 
     static string ExtractMemberName(string signature)
@@ -179,4 +187,31 @@ public sealed class ExplorerNode
     public string? Source { get; init; }
     public string? Highlight { get; init; }
     public List<ExplorerNode> Children { get; } = new();
+    public bool IsExpanded { get; set; }
+}
+
+public static class TreeViewHelper
+{
+    public static void SelectItem(this System.Windows.Controls.TreeView tree, object item)
+    {
+        SelectItem(tree.ItemContainerGenerator, item);
+    }
+
+    static void SelectItem(ItemContainerGenerator generator, object item)
+    {
+        if (generator.ContainerFromItem(item) is TreeViewItem container)
+        {
+            container.IsSelected = true;
+            return;
+        }
+        foreach (object obj in generator.Items)
+        {
+            if (generator.ContainerFromItem(obj) is TreeViewItem parent)
+            {
+                parent.IsExpanded = true;
+                parent.UpdateLayout();
+                SelectItem(parent.ItemContainerGenerator, item);
+            }
+        }
+    }
 }

@@ -105,16 +105,14 @@ public partial class HistoryWindow : Window
             return;
         try
         {
+            var dir = Path.GetDirectoryName(_watch.Path);
             var dlg = new SaveFileDialog
             {
                 Title = "Restore this revision as…",
+                InitialDirectory = dir,
                 FileName = Path.GetFileNameWithoutExtension(_watch.Name) + "_" + row.ShaShort + Path.GetExtension(_watch.Name),
                 Filter = "Assemblies (*.dll)|*.dll",
             };
-            if (dlg.FileName is null)
-                return;
-            var dir = Path.GetDirectoryName(_watch.Path);
-            dlg.InitialDirectory = dir;
             if (dlg.ShowDialog(this) != true)
                 return;
 

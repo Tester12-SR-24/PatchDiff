@@ -26,6 +26,7 @@ public partial class DiffWindow : Window
     {
         InitializeComponent();
         _diff = diff;
+        Title = $"{diff.Title} — PatchDiff";
         TitleText.Text = diff.Title;
         AddedRun.Text = $"+{diff.Added} added";
         RemovedRun.Text = $"−{diff.Removed} removed";
