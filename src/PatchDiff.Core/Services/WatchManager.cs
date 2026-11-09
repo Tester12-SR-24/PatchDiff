@@ -222,6 +222,21 @@ public sealed class WatchManager : IDisposable
                 return;
             }
 
+            // Fast path: file identical to the stored baseline (e.g. app restart,
+            // PC reboot) — no decompilation needed.
+            var oldSnap = SnapshotStore.Load(w.Path);
+            if (oldSnap is not null && oldSnap.Sha256 == sha)
+            {
+                w.ShaShort = sha;
+                w.AssemblyVersion = oldSnap.AssemblyVersion;
+                w.Meta1 = $"v{oldSnap.AssemblyVersion} · {oldSnap.Types.Count} types";
+                w.Status = "Up to date";
+                w.PillKind = "ok";
+                w.PillText = "UP TO DATE";
+                w.LastCheck = DateTime.Now.ToString("HH:mm:ss");
+                return;
+            }
+
             w.Status = "Analyzing…";
             w.PillKind = "busy";
             w.PillText = "ANALYZING…";
@@ -233,8 +248,7 @@ public sealed class WatchManager : IDisposable
             w.Meta1 = $"v{newSnap.AssemblyVersion} · {newSnap.Types.Count} types";
             w.ShaShort = sha;
 
-            var oldSnap = SnapshotStore.Load(w.Path);
-            if (oldSnap is null || oldSnap.Sha256 == newSnap.Sha256)
+            if (oldSnap is null)
             {
                 SnapshotStore.Save(newSnap);
                 w.Status = $"Baseline saved (v{newSnap.AssemblyVersion})";

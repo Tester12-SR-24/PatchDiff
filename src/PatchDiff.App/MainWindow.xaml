@@ -106,20 +106,66 @@
                 <MenuItem Header="Compare _two DLLs…" Click="OnCompareTwo"/>
                 <Separator/>
                 <MenuItem Header="Open _reports folder" Click="OnOpenReports"/>
+                <MenuItem x:Name="AutoStartItem" Header="Start with Windows" IsCheckable="True"
+                          Click="OnToggleAutoStart" ToolTip="Launch PatchDiff automatically at Windows logon so DLL watching resumes after a reboot."/>
                 <Separator/>
                 <MenuItem Header="E_xit" Click="OnExit"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="Check for _updates…" Click="OnCheckForUpdates"/>
+                <Separator/>
+                <MenuItem Header="_About PatchDiff" Click="OnAbout"/>
             </MenuItem>
         </Menu>
 
         <Border DockPanel.Dock="Top" Background="#232327" BorderBrush="#33333a" BorderThickness="0,0,0,1">
+            <Grid>
             <StackPanel Orientation="Horizontal" Margin="10,7">
                 <Button Content="➕ Add DLL" Click="OnAddDll"/>
                 <Button Content="📂 Watch folder…" Click="OnAddFolder"/>
                 <Button Content="⇄ Compare two…" Click="OnCompareTwo"/>
                 <Button Content="↻ Re-check" Click="OnRecheck"/>
+                <Button Content="🔄 All (F5)" Click="OnReloadAll"/>
                 <Button Content="🗑 Remove" Click="OnRemoveWatch"/>
                 <Button Content="📁 Reports" Click="OnOpenReports"/>
+                <Grid Width="240" VerticalAlignment="Center">
+                    <TextBox x:Name="SearchBox" TextChanged="OnSearchChanged" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="🔍 Search types…" Foreground="#6f6f79" FontSize="12" Margin="8,0,0,0"
+                               VerticalAlignment="Center" IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
             </StackPanel>
+
+            <Popup x:Name="SearchPopup" PlacementTarget="{Binding ElementName=SearchBox}" Placement="Bottom"
+                   AllowsTransparency="True" StaysOpen="False" PopupAnimation="Fade">
+                <Border Background="#2b2b31" BorderBrush="#454956" BorderThickness="1" CornerRadius="7"
+                        Padding="5" MinWidth="420" SnapsToDevicePixels="True">
+                    <ListBox x:Name="SearchResults" MinWidth="420" MaxHeight="380"
+                             PreviewKeyDown="OnSearchResultKeyDown"
+                             MouseDoubleClick="OnSearchResultActivated">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="2">
+                                    <TextBlock Text="{Binding TypeName}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding AssemblyName}" Foreground="#6f6f79" FontSize="10.5"
+                                               Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </Popup>
+            </Grid>
         </Border>
 
         <!-- Watched DLL cards -->
@@ -186,6 +232,7 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                             <Button Content="Open diff" Click="OnOpenDiff" Padding="9,3"/>
                                             <Button Content="HTML report" Click="OnOpenReport" Padding="9,3"/>
+                                            <Button Content="⤓ Sources" Click="OnExportSources" Padding="9,3"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
