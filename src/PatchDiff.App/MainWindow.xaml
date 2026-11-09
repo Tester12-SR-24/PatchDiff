@@ -27,6 +27,17 @@
                 <DataTrigger Binding="{Binding PillKind}" Value="error"><Setter Property="Background" Value="#7a2e33"/></DataTrigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="PillText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="#d5d5dc"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding PillKind}" Value="updated"><Setter Property="Foreground" Value="#ffe9a8"/></DataTrigger>
+                <DataTrigger Binding="{Binding PillKind}" Value="ok"><Setter Property="Foreground" Value="#9fe0b3"/></DataTrigger>
+                <DataTrigger Binding="{Binding PillKind}" Value="baseline"><Setter Property="Foreground" Value="#b8f5c9"/></DataTrigger>
+                <DataTrigger Binding="{Binding PillKind}" Value="busy"><Setter Property="Foreground" Value="#a8d3ff"/></DataTrigger>
+                <DataTrigger Binding="{Binding PillKind}" Value="error"><Setter Property="Foreground" Value="#ffc4c8"/></DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10.5"/>
             <Setter Property="Foreground" Value="#8a8a95"/>
