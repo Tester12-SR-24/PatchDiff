@@ -1,12 +1,13 @@
+using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 using PatchDiff.Models;
 using PatchDiff.Services;
-using Microsoft.Win32;
 
 namespace PatchDiff;
 
@@ -15,6 +16,13 @@ public partial class MainWindow : Window
     static readonly string SettingsFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "PatchDiff", "settings.json");
+
+    static readonly string UiStateFile = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PatchDiff", "ui-state.json");
+
+    const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    const string RunValueName = "PatchDiff";
 
     readonly WatchManager _mgr = WatchManager.Instance;
     readonly ObservableCollection<string> _logLines = new();
@@ -28,6 +36,304 @@ public partial class MainWindow : Window
         LogList.ItemsSource = _logLines;
         TimelineList.ItemsSource = Timeline;
         LoadWatchList();
+        LoadUiState();
+
+        // Save state when Windows shuts down / the user logs off too.
+        SystemEvents.SessionEnding += (_, _) => SaveAll();
+        AutoStartItem.IsChecked = IsAutoStartEnabled();
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        SaveAll();
+        base.OnClosing(e);
+    }
+
+    void SaveAll()
+    {
+        SaveWatchList();
+        SaveUiState();
+    }
+
+    // ---------- UI state persistence (timeline + last diffs, ILSpy-style) ----------
+
+    sealed class UiState
+    {
+        public List<TimelineEvent> Timeline { get; set; } = new();
+        public Dictionary<string, AssemblyDiffResult> LastDiffs { get; set; } = new();
+        public double? Left { get; set; }
+        public double? Top { get; set; }
+        public double? Width { get; set; }
+        public double? Height { get; set; }
+        public string? WindowState { get; set; }
+    }
+
+    // ---------- search across watched assemblies (ILSpy search-pane port) ----------
+
+    sealed class SearchResult
+    {
+        public required string TypeName { get; init; }
+        public required string AssemblyName { get; init; }
+        public required string AssemblyPath { get; init; }
+        public required string Source { get; init; }
+    }
+
+    readonly Dictionary<string, AssemblySnapshot> _baselineCache = new(StringComparer.OrdinalIgnoreCase);
+    CancellationTokenSource? _searchCts;
+
+    async Task<AssemblySnapshot?> GetBaselineAsync(WatchedDll w, CancellationToken ct)
+    {
+        if (_baselineCache.TryGetValue(w.Path, out var cached))
+            return cached;
+        var snap = await Task.Run(() => SnapshotStore.Load(w.Path), ct);
+        if (snap is not null)
+            _baselineCache[w.Path] = snap;
+        return snap;
+    }
+
+    async void OnSearchChanged(object sender, TextChangedEventArgs e)
+    {
+        SearchPopup.IsOpen = false;
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var ct = _searchCts.Token;
+        var query = SearchBox.Text.Trim();
+        if (query.Length < 2)
+            return;
+
+        List<SearchResult> results;
+        try
+        {
+            results = await Task.Run(async () =>
+            {
+                var list = new List<SearchResult>();
+                foreach (var w in _mgr.Watched.ToList())
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var snap = await GetBaselineAsync(w, ct);
+                    if (snap is null)
+                        continue;
+                    foreach (var t in snap.Types)
+                    {
+                        if (t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase))
+                        {
+                            list.Add(new SearchResult
+                            {
+                                TypeName = t.FullName,
+                                AssemblyName = w.Name,
+                                AssemblyPath = w.Path,
+                                Source = t.Source,
+                            });
+                            if (list.Count >= 60)
+                                return list;
+                        }
+                    }
+                }
+                return list;
+            }, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (ct.IsCancellationRequested)
+            return;
+        SearchResults.ItemsSource = results;
+        if (results.Count > 0)
+        {
+            SearchResults.SelectedIndex = 0;
+            SearchPopup.IsOpen = true;
+        }
+    }
+
+    void OnSearchResultActivated(object sender, System.Windows.Input.MouseButtonEventArgs e) => OpenSelectedSearchResult();
+
+    void OnSearchResultKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            OpenSelectedSearchResult();
+            e.Handled = true;
+        }
+    }
+
+    void OpenSelectedSearchResult()
+    {
+        if (SearchResults.SelectedItem is not SearchResult hit)
+            return;
+        SearchPopup.IsOpen = false;
+        new SourceWindow(hit.TypeName, hit.AssemblyName, hit.Source) { Owner = this }.Show();
+    }
+
+    // ---------- export decompiled sources (ILSpy "save project" port) ----------
+
+    void OnExportSources(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not WatchedDll w)
+            return;
+        var snap = SnapshotStore.Load(w.Path);
+        if (snap is null)
+        {
+            AddLog($"No snapshot yet for {w.Name}.");
+            return;
+        }
+        var dlg = new OpenFolderDialog { Title = $"Export decompiled sources for {w.Name}" };
+        if (dlg.ShowDialog(this) != true)
+            return;
+
+        var dir = Path.Combine(dlg.FolderName,
+            $"{Path.GetFileNameWithoutExtension(w.Name)}_{snap.Sha256[..8]}_sources");
+        Directory.CreateDirectory(dir);
+        foreach (var t in snap.Types)
+        {
+            var safe = string.Concat(t.FullName.Select(c =>
+                char.IsLetterOrDigit(c) || c == '_' ? c : '_'));
+            File.WriteAllText(Path.Combine(dir, safe + ".cs"), t.Source);
+        }
+        AddLog($"Exported {snap.Types.Count} sources for {w.Name} -> {dir}");
+        Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
+    }
+
+    // ---------- reload all + check for updates (ILSpy UpdateService port) ----------
+
+    void OnReloadAll(object sender, RoutedEventArgs e)
+    {
+        if (_mgr.Watched.Count == 0)
+        {
+            AddLog("Nothing to reload - no DLLs are being watched.");
+            return;
+        }
+        foreach (var w in _mgr.Watched)
+            _mgr.RequestCheck(w);
+        AddLog($"Reloading all {_mgr.Watched.Count} watched DLLs...");
+    }
+
+    async void OnCheckForUpdates(object sender, RoutedEventArgs e)
+    {
+        AddLog("Checking for updates...");
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("PatchDiff");
+            var json = await http.GetStringAsync("https://api.github.com/repos/Tester12-SR-24/PatchDiff/releases/latest");
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
+            var url = doc.RootElement.GetProperty("html_url").GetString() ?? "";
+            var local = GetType().Assembly.GetName().Version;
+            var remote = Version.TryParse(tag.TrimStart('v'), out var rv) ? rv : null;
+
+            if (remote is not null && local is not null && remote > local)
+            {
+                if (MessageBox.Show(this,
+                        $"PatchDiff {remote} is available (you have {local.ToString(3)}).\n\nOpen the releases page?",
+                        "Update available", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                {
+                    Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                }
+                AddLog($"Update available: {tag}.");
+            }
+            else
+            {
+                MessageBox.Show(this, "PatchDiff is up to date.", "Check for updates",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                AddLog("Up to date.");
+            }
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Update check failed: {ex.Message}");
+        }
+    }
+
+    void OnAbout(object sender, RoutedEventArgs e)
+    {
+        var v = GetType().Assembly.GetName().Version?.ToString(3);
+        MessageBox.Show(this,
+            $"PatchDiff {v}\n\nWatch .NET/Unity DLLs; decompile with the ILSpy engine; diff, report, repeat.\n\nBuilt with DeepAI Code.",
+            "About PatchDiff", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    void SaveUiState()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(UiStateFile)!);
+            File.WriteAllText(UiStateFile, JsonSerializer.Serialize(new UiState
+            {
+                Timeline = Timeline.ToList(),
+                LastDiffs = _lastDiffs,
+                Left = Left,
+                Top = Top,
+                Width = ActualWidth,
+                Height = ActualHeight,
+                WindowState = WindowState.ToString(),
+            }, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch { /* non-fatal */ }
+    }
+
+    void LoadUiState()
+    {
+        try
+        {
+            if (!File.Exists(UiStateFile))
+                return;
+            var state = JsonSerializer.Deserialize<UiState>(File.ReadAllText(UiStateFile));
+            if (state is null)
+                return;
+
+            foreach (var evt in state.Timeline.Take(250))
+                Timeline.Add(evt);
+            foreach (var (path, diff) in state.LastDiffs)
+                _lastDiffs[path] = diff;
+
+            if (state.Left is double l && state.Top is double t &&
+                state.Width is double wd && state.Height is double ht)
+            {
+                if (Enum.TryParse<System.Windows.WindowState>(state.WindowState, out var ws))
+                    WindowState = ws == System.Windows.WindowState.Minimized ? WindowState.Normal : ws;
+                if (l >= -100 && t >= -100)
+                {
+                    WindowStartupLocation = WindowStartupLocation.Manual;
+                    Left = l;
+                    Top = t;
+                }
+                Width = wd;
+                Height = ht;
+            }
+
+            if (state.Timeline.Count > 0)
+                AddEvent("info", "RESUMED", $"Session restored \u2014 watch list re-armed; re-checking for changes made while PatchDiff was closed.");
+        }
+        catch { /* non-fatal */ }
+    }
+
+    // ---------- Start with Windows ----------
+
+    static bool IsAutoStartEnabled()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath);
+        return key?.GetValue(RunValueName) is not null;
+    }
+
+    void OnToggleAutoStart(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true);
+            if (AutoStartItem.IsChecked)
+                key.SetValue(RunValueName, $"\"{Environment.ProcessPath}\"");
+            else
+                key.DeleteValue(RunValueName, throwOnMissingValue: false);
+            AddLog(AutoStartItem.IsChecked
+                ? "PatchDiff will now start automatically with Windows."
+                : "Windows auto-start disabled.");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Could not change auto-start: {ex.Message}");
+        }
     }
 
     void WatchManagerHookup()

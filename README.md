@@ -48,6 +48,25 @@ The desktop app shows the same data as a **patch feed**: a card per watched DLL
 updates, an activity log, and a side-by-side colored diff viewer
 (*Open diff*) with one-click HTML reports.
 
+### Persistence & auto-refresh (ILSpy-style)
+
+- Watch list, timeline history, last diffs, and window position survive closing the app
+  or a full PC restart.
+- On the next launch PatchDiff re-checks every watched DLL against its stored baseline —
+  cheap hash comparison first; decompile + diff only if the file changed while it was away.
+- **File ▸ Start with Windows** arms PatchDiff at logon, so a rebooted PC is watching again
+  before you even open the app.
+
+### ILSpy-inspired extras
+
+- **🔍 Search types** (toolbar) — search over every decompiled type in all watched baselines
+  at once, with an IDE-style results popup; Enter opens the decompiled source.
+- **⤓ Sources** (per card) — export the whole decompiled snapshot to a folder of `.cs` files
+  (the light version of ILSpy's *Save Project*), e.g. to feed into git or another diff tool.
+- **🔄 All (F5)** — reload/re-check every watched DLL on demand.
+- **Help ▸ Check for updates** — queries this repo's latest release and offers the download
+  when it's newer than your build.
+
 ## How it works
 
 1. **Baseline** — the first scan decompiles every top-level type of the DLL to C#
