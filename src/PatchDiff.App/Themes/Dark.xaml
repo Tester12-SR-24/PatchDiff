@@ -308,52 +308,6 @@
         </Setter>
     </Style>
 
-    <Style TargetType="TabControl">
-        <Setter Property="Background" Value="#1b1b1f"/>
-        <Setter Property="BorderBrush" Value="#33333a"/>
-        <Setter Property="BorderThickness" Value="1"/>
-    </Style>
-
-    <Style TargetType="TabItem">
-        <Setter Property="Foreground" Value="#9a9aa9"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="TabItem">
-                    <Border x:Name="Bd" Background="Transparent" CornerRadius="6,6,0,0"
-                            Padding="12,7" SnapsToDevicePixels="True">
-                        <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"/>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#2b2b31"/>
-                        </Trigger>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#1b1b1f"/>
-                            <Setter Property="Foreground" Value="#e6e6e6"/>
-                            <Setter Property="FontWeight" Value="SemiBold"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <Style TargetType="ToolTip">
-        <Setter Property="Background" Value="{StaticResource PopoverBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource HlBorderBrush}"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ToolTip">
-                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="1" CornerRadius="6" Padding="10,6" SnapsToDevicePixels="True">
-                        <ContentPresenter/>
-                    </Border>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
     <!-- ============ TabItem (dark, accent underline on selected) ============ -->
     <Style TargetType="TabItem">
         <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
@@ -368,6 +322,7 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="#1b1b1f"/>
                             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
                             <Setter Property="FontWeight" Value="SemiBold"/>
                         </Trigger>
