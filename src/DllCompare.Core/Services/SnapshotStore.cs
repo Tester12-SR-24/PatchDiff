@@ -14,11 +14,11 @@ public sealed class SnapshotStore
 {
     static readonly string Root = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "DllCompare", "Snapshots");
+        "PatchDiff", "Snapshots");
 
     public static readonly string ReportsRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "DllCompare", "Reports");
+        "PatchDiff", "Reports");
 
     static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
@@ -63,10 +63,18 @@ public sealed class SnapshotStore
     public static string WriteHtmlReport(AssemblyDiffResult diff)
     {
         Directory.CreateDirectory(ReportsRoot);
-        var safe = string.Concat(diff.Title.Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
+        var safe = string.Concat(diff.Title
+            .Replace('→', '-')
+            .Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
         var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var path = Path.Combine(ReportsRoot, $"{safe}_{stamp}.html");
+        WriteHtmlReportTo(diff, path);
+        return path;
+    }
 
+    public static void WriteHtmlReportTo(AssemblyDiffResult diff, string path)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var sb = new StringBuilder();
         sb.Append("""
 <!DOCTYPE html><html><head><meta charset="utf-8"><title>
@@ -104,7 +112,6 @@ td.same{background:#fff}
         }
         sb.Append("</body></html>");
         File.WriteAllText(path, sb.ToString());
-        return path;
 
         static string CellClass(DiffPlex.DiffBuilder.Model.DiffPiece? piece, bool isOld) =>
             piece?.Type switch

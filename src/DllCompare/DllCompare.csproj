@@ -8,12 +8,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>DllCompare</RootNamespace>
     <AssemblyName>DllCompare</AssemblyName>
+    <Product>PatchDiff</Product>
     <Version>0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ICSharpCode.Decompiler" Version="9.0.0.7889" />
-    <PackageReference Include="DiffPlex" Version="1.7.2" />
+    <ProjectReference Include="..\DllCompare.Core\DllCompare.Core.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,42 +1,78 @@
-<img src="assets/icon.svg" width="64" height="64" alt="">
+<div align="center">
 
-# ILSpy Comparison C#
+<img src="assets/icon.svg" width="96" height="96" alt="">
 
-Created in DeepAI Code.
+# PatchDiff
 
-A Windows (WPF, .NET 8) app that watches .NET/Unity-game DLLs, decompiles them with the
-same engine as ILSpy (`ICSharpCode.Decompiler`), and when a DLL is replaced or patched
-on disk it automatically diffs the new version against a stored baseline, raises a
-"GAME PATCHED" event in the patch-feed timeline, and writes a self-contained HTML report.
+**Watch .NET / Unity-game DLLs — get a decompiled diff every time they're patched.**
 
-## Build
+Decompiles with the ILSpy engine · snapshot baselines · automatic patch detection · HTML diff reports · GUI and CLI.
 
-    dotnet build src/DllCompare/DllCompare.csproj
+</div>
 
-Requires the .NET 8 SDK. Run `src/DllCompare/bin/Debug/net8.0-windows/DllCompare.exe`.
+---
 
-## Usage
+## Install (GitHub Releases)
 
-1. **File → Add DLL to watch…** — pick e.g. `<game>_Data/Managed/Assembly-CSharp.dll`.
-   The first scan stores a **baseline snapshot** (decompiled source of every top-level type)
-   under `%LOCALAPPDATA%\DllCompare\Snapshots`.
-2. Leave the app running. Whenever the game updates and rewrites the DLL — Unity replaces
-   files via rename, so `FileSystemWatcher` + rename/debounce + a 10 s polling fallback
-   catch it — the app:
-   - hashes the file, re-decompiles it,
-   - diffs it type-by-type against the baseline (**added / removed / modified**),
-   - updates the baseline snapshot,
-   - writes an HTML report to `%LOCALAPPDATA%\DllCompare\Reports`,
-   - shows an `UPDATED` pill on the card and a timeline entry. *Open diff* shows a
-     side-by-side viewer; *HTML report* opens the saved report.
-3. **File → Compare two DLLs…** ad-hoc compares any two assemblies without touching the watch list.
+Grab a build from the [Releases](../../releases) page — every `v*` tag ships prebuilt binaries:
 
-Watched DLLs persist across restarts (`settings.json`).
+| Artifact | What it is |
+|---|---|
+| `patchdiff-win-x64.zip` | CLI for Windows (single exe, self-contained) |
+| `patchdiff-linux-x64.tar.gz` | CLI for Linux |
+| `patchdiff-osx-arm64.tar.gz` | CLI for Apple Silicon |
+| `PatchDiff-app-win-x64.zip` | WPF desktop app (Windows) |
 
-## Notes / limitations
+Extract, put `patchdiff(.exe)` somewhere on your `PATH`, done.
 
-- Works for **Mono-scripted** Unity games (managed `Assembly-CSharp.dll` etc. in
-  `<game>_Data/Managed`). IL2CPP builds compile to native code and have no managed DLLs to diff.
-- Only top-level types are tracked individually (nested types ride along in their parent's source).
-- Referenced assemblies are resolved from the DLL's own folder first (covers Unity's Managed
-  folder, which ships `mscorlib`/`netstandard`), falling back to the .NET Framework 4.x directories.
+## CLI
+
+```bash
+# one-shot: compare two versions of a DLL
+patchdiff compare old/Assembly-CSharp.dll new/Assembly-CSharp.dll -o diff.html
+
+# monitor a Unity game — writes baseline, then auto-diffs on every patch
+patchdiff watch "C:\Games\MyGame_Data\Managed\Assembly-CSharp.dll"
+
+# watch several DLLs, with a custom poll interval
+patchdiff watch --poll 5 Assembly-CSharp.dll MyGame.Network.dll
+```
+
+`watch` runs until Ctrl+C. On each detected update it prints `+added / −removed / ~modified`
+type counts to the console and writes a self-contained HTML report.
+
+## GUI
+
+The desktop app shows the same data as a **patch feed**: a card per watched DLL
+(`UP TO DATE` / `ANALYZING…` / `NEW BASELINE` / `UPDATED`), a timeline of detected
+updates, an activity log, and a side-by-side colored diff viewer
+(*Open diff*) with one-click HTML reports.
+
+## How it works
+
+1. **Baseline** — the first scan decompiles every top-level type of the DLL to C#
+   (via `ICSharpCode.Decompiler`, the same engine as ILSpy) and stores the snapshot
+   in `%LOCALAPPDATA%\PatchDiff\Snapshots`.
+2. **Detection** — `FileSystemWatcher` (rename/change, debounced) plus a polling
+   fallback hash the DLL; read-retries tolerate files still being copied, which is
+   exactly how Unity replaces `Assembly-CSharp.dll` on a patch.
+3. **Diff** — changed hash ⇒ re-decompile ⇒ type-by-type **added / removed / modified**
+   diff against the baseline (DiffPlex line-level side-by-side).
+4. **Report** — HTML report written to `%LOCALAPPDATA%\PatchDiff\Reports`, baseline updated, event emitted.
+
+## Build from source
+
+```bash
+dotnet build                      # PatchDiff.sln: Core + CLI + WPF app
+dotnet run --project src/DllCompare.Cli -- compare a.dll b.dll
+```
+
+Requires the .NET 8 SDK.
+
+## Notes
+
+- Works with **Mono-scripted** Unity games (managed `Assembly-CSharp.dll` and friends in
+  `<game>_Data/Managed`). IL2CPP builds compile to native code — nothing to decompile.
+- References resolve from the DLL's own folder first (Unity's Managed folder ships its
+  own BCL), falling back to the .NET Framework 4.x directories.
+- Only top-level types are tracked individually; nested types ride along in their parent.

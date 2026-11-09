@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0ABD89E0-2F41-4E6D-A41C-43CE9AC0B7ED}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DllCompare.Core", "src\DllCompare.Core\DllCompare.Core.csproj", "{B667A963-09B5-4106-B510-141305A9086A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DllCompare.Cli", "src\DllCompare.Cli\DllCompare.Cli.csproj", "{ADB69676-7153-4AEC-936C-5F8FC553F194}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DllCompare", "src\DllCompare\DllCompare.csproj", "{07594940-BCAA-428A-8ACD-2D32FA3D11E9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B667A963-09B5-4106-B510-141305A9086A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B667A963-09B5-4106-B510-141305A9086A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B667A963-09B5-4106-B510-141305A9086A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B667A963-09B5-4106-B510-141305A9086A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ADB69676-7153-4AEC-936C-5F8FC553F194}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ADB69676-7153-4AEC-936C-5F8FC553F194}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ADB69676-7153-4AEC-936C-5F8FC553F194}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ADB69676-7153-4AEC-936C-5F8FC553F194}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07594940-BCAA-428A-8ACD-2D32FA3D11E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07594940-BCAA-428A-8ACD-2D32FA3D11E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07594940-BCAA-428A-8ACD-2D32FA3D11E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07594940-BCAA-428A-8ACD-2D32FA3D11E9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B667A963-09B5-4106-B510-141305A9086A} = {0ABD89E0-2F41-4E6D-A41C-43CE9AC0B7ED}
+		{ADB69676-7153-4AEC-936C-5F8FC553F194} = {0ABD89E0-2F41-4E6D-A41C-43CE9AC0B7ED}
+		{07594940-BCAA-428A-8ACD-2D32FA3D11E9} = {0ABD89E0-2F41-4E6D-A41C-43CE9AC0B7ED}
+	EndGlobalSection
+EndGlobal

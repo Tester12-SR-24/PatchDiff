@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Windows.Threading;
 using DllCompare.Models;
 
 namespace DllCompare.Services;
@@ -71,7 +70,7 @@ public sealed class WatchedDll : System.ComponentModel.INotifyPropertyChanged
     public string LastReportPath { get; set; } = "";
 
     /// <summary>Debounce timer keyed per DLL (reset on every file-system event).</summary>
-    public DispatcherTimer? Debounce { get; set; }
+    public System.Timers.Timer? Debounce { get; set; }
 
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 }
@@ -169,12 +168,8 @@ public sealed class WatchManager : IDisposable
         fsw.Error += (_, _) => { /* poll fallback covers buffer overflows */ };
         w.Watcher = fsw;
 
-        w.Debounce = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(900) };
-        w.Debounce.Tick += (_, _) =>
-        {
-            w.Debounce!.Stop();
-            _ = Task.Run(() => CheckAsync(w));
-        };
+        w.Debounce = new System.Timers.Timer(900) { AutoReset = false };
+        w.Debounce.Elapsed += (_, _) => _ = Task.Run(() => CheckAsync(w));
     }
 
     void QueueCheck(WatchedDll w)
@@ -182,17 +177,17 @@ public sealed class WatchManager : IDisposable
         var t = w.Debounce;
         if (t is null)
             return;
-        // Restart on the dispatcher thread.
-        t.Dispatcher.BeginInvoke(() => { t.Stop(); t.Start(); });
+        t.Stop();
+        t.Start();
     }
 
-    DispatcherTimer? _pollTimer;
+    System.Timers.Timer? _pollTimer;
     void StartPollingIfNeeded()
     {
         if (_pollTimer is not null)
             return;
-        _pollTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = PollInterval };
-        _pollTimer.Tick += (_, _) =>
+        _pollTimer = new System.Timers.Timer(PollInterval.TotalMilliseconds) { AutoReset = true };
+        _pollTimer.Elapsed += (_, _) =>
         {
             foreach (var w in Watched)
                 _ = Task.Run(() => CheckAsync(w, quietWhenUnchanged: true));
@@ -317,8 +312,10 @@ public sealed class WatchManager : IDisposable
         {
             w.Watcher?.Dispose();
             w.Debounce?.Stop();
+            w.Debounce?.Dispose();
         }
         _pollTimer?.Stop();
+        _pollTimer?.Dispose();
         _checkGate.Dispose();
     }
 }
