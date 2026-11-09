@@ -8,6 +8,7 @@
     <RootNamespace>PatchDiff.Cli</RootNamespace>
     <AssemblyName>patchdiff</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

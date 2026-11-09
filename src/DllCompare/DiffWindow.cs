@@ -1,6 +1,8 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using DllCompare.Models;
 using DllCompare.Services;
 
@@ -16,12 +18,34 @@ public partial class DiffWindow : Window
         InitializeComponent();
         _diff = diff;
         TitleText.Text = diff.Title;
-        CountsText.Text = $"+{diff.Added} added · −{diff.Removed} removed · ~{diff.Modified} modified   " +
-                          $"({diff.OldSha}… → {diff.NewSha}…)";
+        AddedRun.Text = $"+{diff.Added} added";
+        RemovedRun.Text = $"−{diff.Removed} removed";
+        ModifiedRun.Text = $"~{diff.Modified} modified";
+        ShaRun.Text = $"baseline {diff.OldSha}… → current {diff.NewSha}…";
         TypesList.ItemsSource = diff.TypeDiffs;
+        FilterBox.TextChanged += (_, _) => ApplyFilter();
+
         if (diff.TypeDiffs.Count > 0)
             TypesList.SelectedIndex = 0;
+
+        Loaded += (_, _) =>
+        {
+            if (Owner is not null && ActualHeight > Owner.ActualHeight)
+                Height = Owner.ActualHeight - 40;
+        };
     }
+
+    void ApplyFilter()
+    {
+        if (TypesList.ItemsSource is null)
+            return;
+        var view = (ICollectionView)CollectionViewSource.GetDefaultView(TypesList.ItemsSource);
+        var query = FilterBox.Text.Trim();
+        view.Filter = o => query.Length == 0 ||
+                          ((TypeDiff)o).FullName.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    void OnFilterChanged(object sender, TextChangedEventArgs e) { }
 
     void OnTypeSelected(object sender, SelectionChangedEventArgs e)
     {

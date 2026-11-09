@@ -39,11 +39,73 @@ public partial class MainWindow : Window
             _lastDiffs[w.Path] = diff;
             AddEvent("patched", "GAME PATCHED",
                 $"{w.Name} rewritten on disk → auto-diff completed ({diff.Added + diff.Removed + diff.Modified} type changes) → report saved");
+            UpdateFooter();
         });
 
         _mgr.BaselineCreated += (w, _) => Dispatcher.BeginInvoke(() =>
             AddEvent("baseline", "BASELINE",
                 $"{w.Name} added to watch — baseline captured ({w.Meta1})"));
+
+        _mgr.Watched.CollectionChanged += (_, _) => UpdateFooter();
+        UpdateFooter();
+    }
+
+    void UpdateFooter() => FooterText.Text =
+        $"{_mgr.Watched.Count} watched · {Timeline.Count} timeline events · snapshots & reports: %LOCALAPPDATA%\\PatchDiff";
+
+    void OnClearTimeline(object sender, RoutedEventArgs e)
+    {
+        Timeline.Clear();
+        UpdateFooter();
+    }
+
+    void OnRecheck(object sender, RoutedEventArgs e)
+    {
+        var targets = CardsList.SelectedItems.OfType<WatchedDll>().ToList();
+        if (targets.Count == 0)
+        {
+            AddLog("Select a card to re-check.");
+            return;
+        }
+        foreach (var t in targets)
+            _mgr.RequestCheck(t);
+        AddLog(targets.Count == 1 ? $"Re-checking {targets[0].Name}…" : $"Re-checking {targets.Count} DLLs…");
+    }
+
+    void OnDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    void OnDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] items)
+            return;
+        int added = 0;
+        foreach (var item in items)
+        {
+            if (Directory.Exists(item))
+            {
+                foreach (var f in Directory.GetFiles(item, "*.dll"))
+                {
+                    _mgr.Add(f);
+                    added++;
+                }
+            }
+            else if (File.Exists(item) &&
+                     (item.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
+                      item.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))
+            {
+                _mgr.Add(item);
+                added++;
+            }
+        }
+        if (added > 0)
+        {
+            SaveWatchList();
+            AddLog($"Added {added} DLL{(added == 1 ? "" : "s")} via drag & drop.");
+        }
     }
 
     public ObservableCollection<TimelineEvent> Timeline { get; } = new();

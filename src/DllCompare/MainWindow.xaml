@@ -3,6 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:DllCompare"
         Title="PatchDiff — Patch Feed"
+        Icon="icon.ico"
+        AllowDrop="True"
+        Drop="OnDrop"
         Width="1200" Height="780"
         WindowStartupLocation="CenterScreen"
         Background="#1e1e22"
@@ -10,6 +13,7 @@
 
     <Window.Resources>
         <local:KindToBrushConverter x:Key="DiffBrush"/>
+        <local:CollapsedWhenHasItemsConverter x:Key="CollapsedWhenHasItems"/>
 
         <!-- Status pill -->
         <Style x:Key="PillBorder" TargetType="Border">
@@ -93,7 +97,7 @@
     </Window.Resources>
 
     <DockPanel>
-        <Menu DockPanel.Dock="Top" Background="#26262b" Foreground="#d5d5dc">
+        <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="Add _DLL to watch…" Click="OnAddDll"/>
                 <MenuItem Header="Add all DLLs in _folder…" Click="OnAddFolder"/>
@@ -107,30 +111,60 @@
             </MenuItem>
         </Menu>
 
+        <Border DockPanel.Dock="Top" Background="#232327" BorderBrush="#33333a" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Margin="10,7">
+                <Button Content="➕ Add DLL" Click="OnAddDll"/>
+                <Button Content="📂 Watch folder…" Click="OnAddFolder"/>
+                <Button Content="⇄ Compare two…" Click="OnCompareTwo"/>
+                <Button Content="↻ Re-check" Click="OnRecheck"/>
+                <Button Content="🗑 Remove" Click="OnRemoveWatch"/>
+                <Button Content="📁 Reports" Click="OnOpenReports"/>
+            </StackPanel>
+        </Border>
+
         <!-- Watched DLL cards -->
         <Border DockPanel.Dock="Top" BorderBrush="#33333a" BorderThickness="0,0,0,1">
             <DockPanel Margin="14,10,14,0">
                 <TextBlock DockPanel.Dock="Top" Text="WATCHED ASSEMBLIES" Style="{StaticResource SectionHeader}"/>
                 <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="0,0,0,12">
-                    <ListBox x:Name="CardsList" BorderThickness="0" Background="Transparent"
-                             SelectionMode="Extended">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <ContentPresenter/>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ItemsControl.ItemContainerStyle>
+                    <Grid>
+                        <ListBox x:Name="CardsList" BorderThickness="0" Background="Transparent"
+                                 SelectionMode="Extended">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="Bd" Background="Transparent"
+                                                        BorderBrush="Transparent" BorderThickness="1.5"
+                                                        CornerRadius="10" Padding="1.5">
+                                                    <ContentPresenter/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="BorderBrush"
+                                                                Value="#4a76c8"/>
+                                                    </Trigger>
+                                                    <MultiTrigger>
+                                                        <MultiTrigger.Conditions>
+                                                            <Condition Property="IsMouseOver" Value="True"/>
+                                                            <Condition Property="IsSelected" Value="False"/>
+                                                        </MultiTrigger.Conditions>
+                                                        <Setter TargetName="Bd" Property="BorderBrush"
+                                                                Value="#3a3d47"/>
+                                                    </MultiTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Width="330" Background="#26262b" BorderBrush="#38383f"
@@ -145,6 +179,7 @@
                                         </StackPanel>
                                         <TextBlock Text="{Binding Meta1}" FontSize="11" Foreground="#9a9aa4" Margin="0,3,0,0"/>
                                         <TextBlock Text="{Binding ChangeSummary}" FontSize="11" Foreground="#c9a34e"/>
+                                        <TextBlock Text="{Binding Status}" FontSize="10.5" Foreground="#6f6f79" Margin="0,3,0,0"/>
                                         <TextBlock Text="{Binding Path}" FontSize="10" Foreground="#6f6f79"
                                                    TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
                                                    ToolTip="{Binding Path}"/>
@@ -157,8 +192,29 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ListBox>
+                        <TextBlock Text="No DLLs watched yet — use ➕ DLL… or 📂 Folder… above"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="#6f6f79" FontSize="13"
+                                   Margin="0,30,0,30">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasItems, ElementName=CardsList}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
                 </ScrollViewer>
             </DockPanel>
+        </Border>
+
+        <!-- Footer status -->
+        <Border DockPanel.Dock="Bottom" Background="#1b1b1f" BorderBrush="#33333a" BorderThickness="0,1,0,0" Padding="12,5">
+            <TextBlock x:Name="FooterText" FontSize="11.5" Foreground="#9a9aa4"/>
         </Border>
 
         <!-- Activity log -->
@@ -170,9 +226,17 @@
 
         <!-- Timeline -->
         <DockPanel Margin="14,10,14,4">
-            <TextBlock DockPanel.Dock="Top" Text="DETECTED UPDATES" Style="{StaticResource SectionHeader}"/>
-            <ListBox x:Name="TimelineList" BorderThickness="0" Background="Transparent"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <DockPanel DockPanel.Dock="Top" LastChildFill="False" Margin="0,0,0,2">
+                <TextBlock Text="DETECTED UPDATES" Style="{StaticResource SectionHeader}" Margin="2,0,0,0"
+                           VerticalAlignment="Center"/>
+                <Button DockPanel.Dock="Right" Content="Clear" Click="OnClearTimeline" Padding="10,2" FontSize="11"/>
+            </DockPanel>
+            <Grid>
+                <TextBlock Text="No updates detected yet. PatchDiff is standing by &#8212; drop a game update in and it will appear here."
+                           Foreground="#6f6f79" FontSize="12" Margin="2,6,0,0"
+                           Visibility="{Binding HasItems, ElementName=TimelineList, Converter={StaticResource CollapsedWhenHasItems}}"/>
+                <ListBox x:Name="TimelineList" BorderThickness="0" Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid Margin="0,7">
@@ -190,7 +254,8 @@
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
-            </ListBox>
+                </ListBox>
+            </Grid>
         </DockPanel>
     </DockPanel>
 </Window>

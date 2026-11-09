@@ -122,6 +122,9 @@ public sealed class WatchManager : IDisposable
         Log($"Stopped watching {w.Path}");
     }
 
+    /// <summary>Manual re-check (ignores debounce).</summary>
+    public void RequestCheck(WatchedDll w) => _ = Task.Run(() => CheckAsync(w));
+
     /// <summary>Compares two arbitrary DLL files without touching the watch list or snapshots.</summary>
     public async Task<AssemblyDiffResult?> CompareTwoAsync(string oldPath, string newPath)
     {

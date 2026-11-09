@@ -1,8 +1,21 @@
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
 namespace DllCompare;
+
+/// <summary>
+/// True (collection HasItems) → Collapsed; false → Visible. Used for empty-state hints.
+/// </summary>
+public sealed class CollapsedWhenHasItemsConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
 
 /// <summary>
 /// Maps diff line kinds (Unchanged/Deleted/Inserted/Modified) to background brushes.
