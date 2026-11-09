@@ -1,13 +1,8 @@
+using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows;
-using Application = System.Windows.Application;
-using Brush = System.Windows.Media.Brush;
-using Clipboard = System.Windows.Clipboard;
-using DataFormats = System.Windows.DataFormats;
-using DragEventArgs = System.Windows.DragEventArgs;
-using MessageBox = System.Windows.MessageBox;
-using MessageBoxImage = System.Windows.MessageBoxImage;
-using MessageBoxButton = System.Windows.MessageBoxButton;
-using MessageBoxResult = System.Windows.MessageBoxResult;
+using System.Windows.Threading;
+using PatchDiff.Services;
 
 namespace PatchDiff;
 
@@ -15,16 +10,45 @@ public partial class App : Application
 {
     private Mutex? _instanceMutex;
     private EventWaitHandle? _restoreEvent;
+    private const string LogDirName = "logs";
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // ---- single instance ----
         _instanceMutex = new Mutex(true, @"Local\PatchDiff.SingleInstance", out var createdNew);
         _restoreEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\PatchDiff.Restore");
 
         if (!createdNew)
         {
-            // Already running in the tray — poke the existing instance and quit.
             _restoreEvent.Set();
+            Shutdown();
+            return;
+        }
+
+        RegisterGlobalHandlers();
+
+        // ---- pre-WPF crash safety net ----
+        // Everything below runs inside a net: any failure (theme file problems,
+        // malformed XAML, merge errors) becomes a loud MessageBox + log, never a
+        // silent exit. No WPF window exists yet at this point.
+        try
+        {
+            RunXamlPrecheck();
+
+            var dark = new ResourceDictionary
+            {
+                Source = new Uri("pack://application:,,,/Themes/Dark.xaml"),
+            };
+            Resources.MergedDictionaries.Add(dark);
+        }
+        catch (Exception ex)
+        {
+            WriteCrashLog("startup (resource merge)", ex);
+            var result = PreWindowCrashDialog(ex, "PatchDiff can't start — a UI theme file is corrupted.",
+                "Problem found while loading the UI theme:" +
+                Environment.NewLine + ex.Message +
+                Environment.NewLine + Environment.NewLine +
+                "Your data is safe (snapshots, reports, settings in %LOCALAPPDATA%\\PatchDiff).");
             Shutdown();
             return;
         }
@@ -34,5 +58,150 @@ public partial class App : Application
             null, -1, executeOnlyOnce: true);
 
         base.OnStartup(e);
+
+        // ---- main window creation inside the same net ----
+        try
+        {
+            var window = new MainWindow();
+            MainWindow = window;
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            WriteCrashLog("startup (main window)", ex);
+            PreWindowCrashDialog(ex, "PatchDiff hit a problem while building its interface.",
+                ex.Message + Environment.NewLine + Environment.NewLine +
+                "Your data is safe (snapshots, reports, settings in %LOCALAPPDATA%\\PatchDiff).");
+            Shutdown();
+        }
+    }
+
+    // ---- naive XAML precheck: catches the two crash classes we actually shipped ----
+    // (duplicate implicit style keys; attribute appended after a self-closing tag)
+    static void RunXamlPrecheck()
+    {
+        var dir = FindXamlSourceDir();
+        if (dir is null)
+            return; // published single-file build: no .xaml sources present, nothing to scan
+
+        foreach (var file in Directory.GetFiles(dir, "*.xaml", SearchOption.AllDirectories))
+        {
+            if (file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(part =>
+                    part.StartsWith("bin", StringComparison.OrdinalIgnoreCase) ||
+                    part.StartsWith("obj", StringComparison.OrdinalIgnoreCase)))
+                continue;
+            var text = File.ReadAllText(file);
+            var name = Path.GetFileName(file);
+
+            // class 1: two implicit styles for the same type in one file
+            var implicitTargets = new List<string>();
+            foreach (Match m in Regex.Matches(text, @"<Style[^>]*TargetType=""(?<t>[^""]+)""[^>]*>"))
+            {
+                if (m.Value.Contains("x:Key="))
+                    continue; // keyed styles may share a TargetType legally
+                implicitTargets.Add(m.Groups["t"].Value);
+            }
+            var dup = implicitTargets.GroupBy(t => t).Where(g => g.Count() > 1)
+                .Select(g => g.Key).ToList();
+            if (dup.Count > 0)
+                throw new InvalidOperationException(
+                    $"{name}: duplicate implicit style key(s): {string.Join(", ", dup)}");
+
+            // class 2: attribute after a self-closing tag
+            if (Regex.IsMatch(text, @"/>\s*\w+="""))
+                throw new InvalidOperationException(
+                    $"{name}: attribute found after a self-closing tag (/> Margin=... pattern)");
+        }
+    }
+
+    static string? FindXamlSourceDir()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 6 && dir is not null; i++)
+        {
+            var probe = System.IO.Path.Combine(dir, "Themes", "Dark.xaml");
+            if (File.Exists(probe))
+                return dir;
+            dir = Directory.GetParent(dir)?.FullName;
+        }
+        return null;
+    }
+
+    // ---- global handlers + crash log ----
+
+    void RegisterGlobalHandlers()
+    {
+        DispatcherUnhandledException += (_, args) =>
+        {
+            WriteCrashLog("runtime (dispatcher)", args.Exception);
+            var cont = RuntimeCrashDialog(args.Exception);
+            args.Handled = cont == MessageBoxResult.Yes; // "Continue" keeps the session alive where safe
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            // INTENTIONAL, no dialog: this fires while the process is terminating;
+            // a MessageBox here would race shutdown and often never display.
+            // The log file is the durable record (header documents this).
+            if (args.ExceptionObject is Exception ex)
+                WriteCrashLog("fatal (app domain, process terminating - log only)", ex);
+        };
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            WriteCrashLog("unobserved task", args.Exception);
+            args.SetObserved();
+        };
+    }
+
+    static readonly object CrashLogGate = new();
+
+    public static void WriteCrashLog(string phase, Exception ex)
+    {
+        try
+        {
+            var dir = Path.Combine(SnapshotStore.DataRoot, LogDirName);
+            Directory.CreateDirectory(dir);
+            var file = Path.Combine(dir, $"crash-{DateTime.Now:yyyyMMdd_HHmmss}.log");
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"time:   {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine($"phase:  {phase}");
+            sb.AppendLine($"version:{typeof(App).Assembly.GetName().Version}");
+            sb.AppendLine($"type:   {ex.GetType().FullName}");
+            sb.AppendLine($"message:{ex.Message}");
+            sb.AppendLine(ex.StackTrace);
+            File.WriteAllText(file, sb.ToString());
+        }
+        catch { /* crash logging must never throw */ }
+    }
+
+    MessageBoxResult PreWindowCrashDialog(Exception ex, string title, string body)
+    {
+        try
+        {
+            return System.Windows.MessageBox.Show(
+                $"{body}{Environment.NewLine}{Environment.NewLine}Technical: {ex.GetType().Name}: {ex.Message}",
+                title, MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        catch
+        {
+            return MessageBoxResult.None;
+        }
+    }
+
+    MessageBoxResult RuntimeCrashDialog(Exception ex)
+    {
+        try
+        {
+            return MessageBox.Show(
+                "Something went wrong. The error was logged and the app recovered." + Environment.NewLine + Environment.NewLine +
+                "YES = keep PatchDiff running (recommended)." + Environment.NewLine +
+                "NO = close PatchDiff now." + Environment.NewLine + Environment.NewLine +
+                $"Technical: {ex.GetType().Name}: {ex.Message}",
+                "PatchDiff", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            // Yes = continue (ESC does not map to a destructive choice on YesNo)
+        }
+        catch
+        {
+            return MessageBoxResult.None;
+        }
     }
 }

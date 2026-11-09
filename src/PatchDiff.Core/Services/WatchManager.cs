@@ -69,6 +69,8 @@ public sealed class WatchedDll : System.ComponentModel.INotifyPropertyChanged
 
     public string LastReportPath { get; set; } = "";
 
+    public bool IsDemo { get; set; }
+
     /// <summary>Debounce timer keyed per DLL (reset on every file-system event).</summary>
     public System.Timers.Timer? Debounce { get; set; }
 
@@ -89,6 +91,8 @@ public sealed class WatchManager : IDisposable
     readonly DecompilerService _decompiler = new();
     readonly DiffService _diff = new();
     readonly RevisionStore _revisions = new();
+    readonly Dictionary<string, AssemblySnapshot> _demoBaselines = new(StringComparer.OrdinalIgnoreCase);
+    public int ArchiveKeep { get; set; } // 0 = keep all revisions
     readonly SemaphoreSlim _checkGate = new(1, 1);
 
     /// <summary>Poll fallback period: FileSystemWatcher can miss events (network drives, fast renames).</summary>
@@ -100,12 +104,12 @@ public sealed class WatchManager : IDisposable
 
     WatchManager() { }
 
-    public void Add(string dllPath)
+    public void Add(string dllPath, bool isDemo = false)
     {
         if (Watched.Any(w => string.Equals(w.Path, dllPath, StringComparison.OrdinalIgnoreCase)))
             return;
 
-        var w = new WatchedDll { Path = System.IO.Path.GetFullPath(dllPath) };
+        var w = new WatchedDll { Path = System.IO.Path.GetFullPath(dllPath), IsDemo = isDemo };
         Watched.Add(w);
 
         StartWatcher(w);
@@ -121,6 +125,8 @@ public sealed class WatchManager : IDisposable
         w.Debounce?.Stop();
         w.Debounce?.Dispose();
         Watched.Remove(w);
+        if (w.IsDemo)
+            _demoBaselines.Remove(w.Path);
         if (purgeData)
         {
             try
@@ -183,6 +189,7 @@ public sealed class WatchManager : IDisposable
         fsw.Changed += (_, _) => QueueCheck(w);
         fsw.Created += (_, _) => QueueCheck(w);
         fsw.Renamed += (_, _) => QueueCheck(w);
+        fsw.Deleted += (_, _) => QueueCheck(w);
         fsw.Error += (_, _) => { /* poll fallback covers buffer overflows */ };
         w.Watcher = fsw;
 
@@ -240,6 +247,75 @@ public sealed class WatchManager : IDisposable
                 return;
             }
 
+            if (!File.Exists(w.Path))
+            {
+                w.Status = "File missing";
+                w.PillKind = "error";
+                w.PillText = "MISSING";
+                Log($"{w.Name} no longer exists at {w.Path} — watch kept, awaiting the file to return.");
+                return;
+            }
+
+            // Demo sessions live entirely in memory: nothing is persisted,
+            // nothing is archived. Perfect for onboarding/sample data.
+            if (w.IsDemo)
+            {
+                if (_demoBaselines.TryGetValue(w.Path, out var baseline))
+                {
+                    if (baseline.Sha256 == sha)
+                    {
+                        w.Status = "Demo up to date";
+                        w.PillKind = "ok";
+                        w.PillText = "DEMO";
+                        return;
+                    }
+                    w.Status = "Analyzing demo…";
+                    w.PillKind = "busy";
+                    w.PillText = "DEMO";
+                    var (demoSnap, _) = _decompiler.BuildWithBytes(w.Path, (done, total) =>
+                        w.Status = $"Decompiling {done}/{total}…");
+                    if (demoSnap.Sha256 != sha)
+                    {
+                        Log("Demo file changed while analyzing — retrying on the next poll.");
+                        return;
+                    }
+                    w.Meta1 = $"v{demoSnap.AssemblyVersion} · {demoSnap.Types.Count} types";
+                    w.ShaShort = sha;
+                    var demoDiff = _diff.Compare(baseline, demoSnap);
+                    demoDiff.Intelligence = DiffIntelligence.Analyze(demoDiff);
+                    _demoBaselines[w.Path] = demoSnap;
+                    if (demoDiff.HasChanges)
+                    {
+                        Log($"Demo update: +{demoDiff.Added} added, −{demoDiff.Removed} removed, ~{demoDiff.Modified} modified (nothing persisted).");
+                        w.Status = $"Demo changed! +{demoDiff.Added} −{demoDiff.Removed} ~{demoDiff.Modified}";
+                        w.PillKind = "updated";
+                        w.PillText = "DEMO PATCH";
+                        DiffProduced?.Invoke(w, demoDiff);
+                    }
+                    else
+                    {
+                        Log("Demo changed on disk but decompiled API is identical.");
+                        w.Status = "Demo up to date";
+                    }
+                }
+                else
+                {
+                    w.Status = "Analyzing demo…";
+                    w.PillKind = "busy";
+                    w.PillText = "DEMO";
+                    var (demoSnap, _) = _decompiler.BuildWithBytes(w.Path, (done, total) =>
+                        w.Status = $"Decompiling {done}/{total}…");
+                    w.AssemblyVersion = demoSnap.AssemblyVersion;
+                    w.Meta1 = $"v{demoSnap.AssemblyVersion} · {demoSnap.Types.Count} types";
+                    w.ShaShort = sha;
+                    _demoBaselines[w.Path] = demoSnap;
+                    w.Status = "Demo baseline ready";
+                    w.PillKind = "baseline";
+                    w.PillText = "DEMO READY";
+                }
+                return;
+            }
+
             // Fast path: file identical to the stored baseline (e.g. app restart,
             // PC reboot) — no decompilation needed.
             var oldSnap = SnapshotStore.Load(w.Path);
@@ -270,7 +346,7 @@ public sealed class WatchManager : IDisposable
             // (e.g. no member signatures) — silently upgrade the baseline.
             if (oldSnap is not null && oldSnap.Sha256 == newSnap.Sha256)
             {
-                _revisions.Append(newSnap, newBytes);
+                _revisions.Append(newSnap, newBytes, ArchiveKeep);
                 SnapshotStore.Save(newSnap);
                 w.Status = "Baseline upgraded";
                 w.PillKind = "ok";
@@ -281,7 +357,7 @@ public sealed class WatchManager : IDisposable
 
             if (oldSnap is null)
             {
-                _revisions.Append(newSnap, newBytes);
+                _revisions.Append(newSnap, newBytes, ArchiveKeep);
                 SnapshotStore.Save(newSnap);
                 w.Status = $"Baseline saved (v{newSnap.AssemblyVersion})";
                 w.PillKind = "baseline";
@@ -294,7 +370,7 @@ public sealed class WatchManager : IDisposable
 
             var diff = _diff.Compare(oldSnap, newSnap);
             diff.Intelligence = DiffIntelligence.Analyze(diff);
-            _revisions.Append(newSnap, newBytes);
+            _revisions.Append(newSnap, newBytes, ArchiveKeep);
             SnapshotStore.Save(newSnap);
 
             if (diff.HasChanges)

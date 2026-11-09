@@ -28,6 +28,7 @@ public partial class SettingsWindow : Window
             _ => 0,
         };
         VersionText.Text = $"PatchDiff {MainWindow.CurrentVersion()} · data: {SnapshotStore.DataRoot}";
+        Loaded += (_, _) => DarkTitleBar.Enable(this);
     }
 
     void OnApply(object sender, RoutedEventArgs e)

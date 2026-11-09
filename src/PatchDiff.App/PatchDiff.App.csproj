@@ -10,14 +10,20 @@
     <RootNamespace>PatchDiff</RootNamespace>
     <AssemblyName>PatchDiff</AssemblyName>
     <Product>PatchDiff</Product>
-    <Version>0.3.3</Version>
-    <AssemblyVersion>0.3.3.0</AssemblyVersion>
-    <FileVersion>0.3.3.0</FileVersion>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="icon.ico" />
+    <Resource Include="Assets\demo.dll" />
   </ItemGroup>
 
   <ItemGroup>

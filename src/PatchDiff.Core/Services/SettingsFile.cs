@@ -10,6 +10,7 @@ public sealed class StoredSettings
     public bool BalloonOnPatch { get; set; } = true;
     public bool StartMinimized { get; set; }
     public int ArchiveKeep { get; set; } // 0 = keep all
+    public bool DemoCleared { get; set; }
 }
 
 public static class SettingsFile
@@ -37,6 +38,7 @@ public static class SettingsFile
                 if (s.TryGetProperty("balloonOnPatch", out var bal)) settings.BalloonOnPatch = bal.GetBoolean();
                 if (s.TryGetProperty("startMinimized", out var min)) settings.StartMinimized = min.GetBoolean();
                 if (s.TryGetProperty("archiveKeep", out var keep)) settings.ArchiveKeep = keep.GetInt32();
+                if (s.TryGetProperty("demoCleared", out var dc)) settings.DemoCleared = dc.GetBoolean();
             }
             return settings;
         }
