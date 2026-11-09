@@ -510,14 +510,35 @@ public partial class MainWindow : Window
 
     void OnRemoveWatch(object sender, RoutedEventArgs e)
     {
-        if (CardsList.SelectedItems.Count == 0)
+        var targets = CardsList.SelectedItems.OfType<WatchedDll>().ToList();
+        if (targets.Count == 0)
         {
-            AddLog("Select a card to remove its watch.");
+            AddLog("Select a card to remove its watch (click a card first; Ctrl/Shift-click for several).");
             return;
         }
-        foreach (var item in CardsList.SelectedItems.OfType<WatchedDll>().ToList())
-            _mgr.Remove(item);
+        RemoveMany(targets);
+    }
+
+    void OnRemoveAll(object sender, RoutedEventArgs e)
+        => RemoveMany(_mgr.Watched.ToList());
+
+    void RemoveMany(List<WatchedDll> targets)
+    {
+        var msg = targets.Count == 1
+            ? $"Stop watching {targets[0].Name}?{Environment.NewLine}{Environment.NewLine}Its baseline snapshot will be deleted."
+            : $"Stop watching all {targets.Count} DLLs?{Environment.NewLine}{Environment.NewLine}Their baseline snapshots will be deleted.";
+        if (MessageBox.Show(this, msg, "PatchDiff", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        foreach (var t in targets)
+        {
+            _lastDiffs.Remove(t.Path);
+            _baselineCache.Remove(t.Path);
+            _mgr.Remove(t, purgeData: true);
+        }
         SaveWatchList();
+        UpdateFooter();
+        AddLog($"Removed {targets.Count} watch{(targets.Count == 1 ? "" : "es")}.");
     }
 
     async void OnCompareTwo(object sender, RoutedEventArgs e)

@@ -114,11 +114,24 @@ public sealed class WatchManager : IDisposable
         Log($"Watching {w.Path}");
     }
 
-    public void Remove(WatchedDll w)
+    public void Remove(WatchedDll w, bool purgeData = false)
     {
         w.Watcher?.Dispose();
         w.Debounce?.Stop();
+        w.Debounce?.Dispose();
         Watched.Remove(w);
+        if (purgeData)
+        {
+            try
+            {
+                SnapshotStore.Delete(w.Path);
+                Log($"Deleted baseline for {w.Name}.");
+            }
+            catch (Exception ex)
+            {
+                Log($"Could not delete baseline for {w.Name}: {ex.Message}");
+            }
+        }
         Log($"Stopped watching {w.Path}");
     }
 
@@ -203,6 +216,9 @@ public sealed class WatchManager : IDisposable
         _checkGate.Wait();
         try
         {
+            if (!Watched.Contains(w))
+                return; // removed while an analysis was queued/in flight
+
             var data = TryReadAll(w.Path);
             if (data is null)
             {
@@ -284,7 +300,9 @@ public sealed class WatchManager : IDisposable
                 w.Status = $"Changed! +{diff.Added} −{diff.Removed} ~{diff.Modified}";
                 w.PillKind = "updated";
                 w.PillText = "UPDATED";
-                w.ChangeSummary = $"v{oldSnap.AssemblyVersion} → v{newSnap.AssemblyVersion} · +{diff.Added} added · −{diff.Removed} removed · ~{diff.Modified} modified";
+                w.ChangeSummary = oldSnap.AssemblyVersion == newSnap.AssemblyVersion
+                    ? $"{diff.Added + diff.Removed + diff.Modified} type changes · +{diff.Added} added · −{diff.Removed} removed · ~{diff.Modified} modified"
+                    : $"v{oldSnap.AssemblyVersion} → v{newSnap.AssemblyVersion} · +{diff.Added} added · −{diff.Removed} removed · ~{diff.Modified} modified";
                 DiffProduced?.Invoke(w, diff);
             }
             else
