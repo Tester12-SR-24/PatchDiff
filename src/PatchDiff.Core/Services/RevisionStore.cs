@@ -35,7 +35,7 @@ public sealed class RevisionStore
     }
 
     /// <summary>Archives the snapshot manifest + the DLL bytes as a new revision.</summary>
-    public void Append(AssemblySnapshot snapshot, byte[] dllBytes)
+    public void Append(AssemblySnapshot snapshot, byte[] dllBytes, int keepRevisions = 0)
     {
         var revDirName = $"{snapshot.Sha256[..8]}_{snapshot.CapturedUtc:yyyyMMdd_HHmmss}";
         var revDir = Path.Combine(RootFor(snapshot.AssemblyPath), revDirName);
@@ -61,6 +61,22 @@ public sealed class RevisionStore
             TypeCount = snapshot.Types.Count,
         });
         list.Sort((a, b) => a.CapturedUtc.CompareTo(b.CapturedUtc));
+        if (keepRevisions > 0 && list.Count > keepRevisions)
+        {
+            var drop = list.Take(list.Count - keepRevisions).ToList();
+            list = list.Skip(list.Count - keepRevisions).ToList();
+            foreach (var d in drop)
+            {
+                try
+                {
+                    var dd = Path.Combine(RootFor(snapshot.AssemblyPath), d.DirName);
+                    if (Directory.Exists(dd)) Directory.Delete(dd, true);
+                    var ad = Path.Combine(ArchiveDirFor(snapshot.AssemblyPath), d.DirName + ".dll");
+                    if (File.Exists(ad)) File.Delete(ad);
+                }
+                catch { /* best effort */ }
+            }
+        }
         File.WriteAllText(IndexFile(snapshot.AssemblyPath), JsonSerializer.Serialize(list, JsonOpts));
     }
 

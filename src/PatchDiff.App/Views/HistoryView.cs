@@ -4,15 +4,17 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using MessageBox = System.Windows.MessageBox;
-using MessageBoxImage = System.Windows.MessageBoxImage;
 using MessageBoxButton = System.Windows.MessageBoxButton;
+using MessageBoxImage = System.Windows.MessageBoxImage;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 using PatchDiff.Models;
 using PatchDiff.Services;
+using UserControl = System.Windows.Controls.UserControl;
+using Brush = System.Windows.Media.Brush;
 
-namespace PatchDiff;
+namespace PatchDiff.Views;
 
-public partial class HistoryWindow : Window
+public partial class HistoryView : UserControl
 {
     sealed class RevRow
     {
@@ -25,12 +27,14 @@ public partial class HistoryWindow : Window
     }
 
     readonly WatchedDll _watch;
+    Window OwnerWindow => Window.GetWindow(this)!;
 
-    public HistoryWindow(WatchedDll watch)
+    public event Action<AssemblyDiffResult>? DiffRequested;
+
+    public HistoryView(WatchedDll watch)
     {
         InitializeComponent();
         _watch = watch;
-        Title = $"History — {watch.Name}";
         TitleText.Text = $"Revision history — {watch.Name}";
         var revs = new RevisionStore().List(watch.Path);
         MetaText.Text = revs.Count == 0
@@ -55,30 +59,29 @@ public partial class HistoryWindow : Window
                 againstCurrent ? SnapshotStore.Load(_watch.Path) : store.LoadRevision(_watch.Path, row.Info.Sha256));
             if (newSnap is null)
             {
-                MessageBox.Show(this, "Could not load that revision.", "PatchDiff");
+                MessageBox.Show(OwnerWindow, "Could not load that revision.", "PatchDiff");
                 return;
             }
 
             AssemblySnapshot oldSnap;
+            var revs = store.List(_watch.Path).OrderBy(r => r.CapturedUtc).ToList();
             if (againstCurrent)
             {
-                var prev = new RevisionStore().List(_watch.Path)
-                    .OrderByDescending(r => r.CapturedUtc)
+                var prev = revs.OrderByDescending(r => r.CapturedUtc)
                     .FirstOrDefault(r => r.Sha256 != newSnap.Sha256);
                 if (prev is null)
                 {
-                    MessageBox.Show(this, "No earlier revision to compare with.", "PatchDiff");
+                    MessageBox.Show(OwnerWindow, "No earlier revision to compare with.", "PatchDiff");
                     return;
                 }
                 oldSnap = store.LoadRevision(_watch.Path, prev.Sha256)!;
             }
             else
             {
-                var revs = store.List(_watch.Path).OrderBy(r => r.CapturedUtc).ToList();
                 var idx = revs.FindIndex(r => r.Sha256 == row.Info.Sha256);
                 if (idx <= 0)
                 {
-                    MessageBox.Show(this, "This is the oldest revision — nothing before it.", "PatchDiff");
+                    MessageBox.Show(OwnerWindow, "This is the oldest revision — nothing before it.", "PatchDiff");
                     return;
                 }
                 oldSnap = store.LoadRevision(_watch.Path, revs[idx - 1].Sha256)!;
@@ -89,13 +92,13 @@ public partial class HistoryWindow : Window
             diff.Intelligence = DiffIntelligence.Analyze(diff);
 
             if (diff.HasChanges)
-                new DiffWindow(diff) { Owner = this }.Show();
+                DiffRequested?.Invoke(diff);
             else
-                MessageBox.Show(this, "No type changes between those revisions.", "PatchDiff");
+                MessageBox.Show(OwnerWindow, "No type changes between those revisions.", "PatchDiff");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Compare failed: {ex.Message}", "PatchDiff");
+            MessageBox.Show(OwnerWindow, $"Compare failed: {ex.Message}", "PatchDiff");
         }
     }
 
@@ -113,7 +116,7 @@ public partial class HistoryWindow : Window
                 FileName = Path.GetFileNameWithoutExtension(_watch.Name) + "_" + row.ShaShort + Path.GetExtension(_watch.Name),
                 Filter = "Assemblies (*.dll)|*.dll",
             };
-            if (dlg.ShowDialog(this) != true)
+            if (dlg.ShowDialog(OwnerWindow) != true)
                 return;
 
             var store = new RevisionStore();
@@ -122,7 +125,7 @@ public partial class HistoryWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Restore failed: {ex.Message}", "PatchDiff");
+            MessageBox.Show(OwnerWindow, $"Restore failed: {ex.Message}", "PatchDiff");
         }
     }
 }

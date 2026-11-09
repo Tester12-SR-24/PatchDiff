@@ -1,0 +1,62 @@
+<Window x:Class="PatchDiff.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PatchDiff — Settings"
+        Width="640" Height="620"
+        Icon="icon.ico"
+        WindowStartupLocation="CenterOwner"
+        Background="#1e1e22"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        TextElement.Foreground="#e6e6e6">
+
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="#1b1b1f" BorderBrush="#33333a" BorderThickness="0,1,0,0" Padding="12,8">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Cancel" Click="OnCancel" Padding="12,5"/>
+                    <Button Content="Apply" Click="OnApply" Padding="12,5" Style="{StaticResource AccentButton}"/>
+                </StackPanel>
+                <TextBlock Text="Changes apply immediately after Apply." FontSize="11" Foreground="#9a9aa9"
+                           VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16">
+
+                <TextBlock Text="🔔 Notifications" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,6"/>
+                <CheckBox x:Name="BalloonOnPatch" Content="Show tray balloon when a DLL update is detected" Margin="0,2"/>
+                <CheckBox Content="Balloon when a new baseline snapshot is created" IsEnabled="False" Margin="0,2,0,12"/>
+
+                <TextBlock Text="⚙️ Engine &amp; polling" FontWeight="SemiBold" FontSize="13" Margin="0,8,0,6"/>
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                    <TextBlock Text="Poll interval (seconds):" Width="180" VerticalAlignment="Center"/>
+                    <TextBox x:Name="PollSeconds" Width="80" VerticalContentAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Text="FileSystemWatcher + this polling fallback both run; lower = faster detection."
+                           FontSize="10.5" Foreground="#9a9aa9" Margin="0,2,0,12"/>
+
+                <TextBlock Text="🗄️ Archive &amp; data" FontWeight="SemiBold" FontSize="13" Margin="0,8,0,6"/>
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                    <TextBlock Text="Keep revisions:" Width="180" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="ArchiveKeep" Width="140" SelectedIndex="0">
+                        <ComboBoxItem Content="Keep all (recommended)"/>
+                        <ComboBoxItem Content="Last 10"/>
+                        <ComboBoxItem Content="Last 50"/>
+                        <ComboBoxItem Content="Last 100"/>
+                    </ComboBox>
+                </StackPanel>
+                <TextBlock Text="Old revisions (decompiled manifests + archived DLL copies) are pruned when exceeded."
+                           FontSize="10.5" Foreground="#9a9aa9" Margin="0,2,0,12"/>
+
+                <TextBlock Text="🚀 Startup" FontWeight="SemiBold" FontSize="13" Margin="0,8,0,6"/>
+                <CheckBox x:Name="StartMinimized" Content="Start minimized to the system tray" Margin="0,2"/>
+                <TextBlock Text="'Start with Windows' is set from File menu / tray menu (kept in sync)." FontSize="10.5"
+                           Foreground="#9a9aa9" Margin="0,2,0,12"/>
+
+                <TextBlock Text="ℹ️ About" FontWeight="SemiBold" FontSize="13" Margin="0,8,0,6"/>
+                <TextBlock x:Name="VersionText" FontSize="11.5" Foreground="#9a9aa9"/>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

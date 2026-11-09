@@ -1,37 +1,33 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using PatchDiff.Models;
-using Application = System.Windows.Application;
+using PatchDiff.Services;
+using UserControl = System.Windows.Controls.UserControl;
 using Brush = System.Windows.Media.Brush;
-using Clipboard = System.Windows.Clipboard;
-using DataFormats = System.Windows.DataFormats;
-using DragEventArgs = System.Windows.DragEventArgs;
 using MessageBox = System.Windows.MessageBox;
-using MessageBoxImage = System.Windows.MessageBoxImage;
 using MessageBoxButton = System.Windows.MessageBoxButton;
-using MessageBoxResult = System.Windows.MessageBoxResult;
 
-namespace PatchDiff;
+namespace PatchDiff.Views;
 
-/// <summary>
-/// ILSpy-style assembly browser: namespaces → types → members, with the
-/// decompiled source of the selected type shown alongside.
-/// </summary>
-public partial class AssemblyExplorerWindow : Window
+public partial class BrowseView : UserControl
 {
     readonly AssemblySnapshot _snapshot;
+    readonly WatchedDll _watch;
+    Window _owner => Window.GetWindow(this)!;
 
-    public AssemblyExplorerWindow(AssemblySnapshot snapshot)
+    public event Action<string>? PinRequested;
+    public event Action<AssemblyDiffResult>? DiffRequested;
+
+    public BrowseView(AssemblySnapshot snapshot, WatchedDll watch)
     {
         InitializeComponent();
         _snapshot = snapshot;
+        _watch = watch;
 
-        var name = System.IO.Path.GetFileName(snapshot.AssemblyPath);
-        Title = $"{name} — PatchDiff Explorer";
-        AssemblyNameText.Text = $"{name}  ({snapshot.Sha256[..12]}…)";
-        AssemblyMetaText.Text = $"v{snapshot.AssemblyVersion} · {snapshot.Types.Count} types · baseline captured {snapshot.CapturedUtc.ToLocalTime():yyyy-MM-dd HH:mm}";
+        var name = Path.GetFileName(snapshot.AssemblyPath);
+        SourceMeta.Text = $"v{snapshot.AssemblyVersion} · {snapshot.Types.Count} types · baseline {snapshot.Sha256[..12]}…";
 
-        // Build the tree off the UI thread — big assemblies have thousands of nodes.
         Loaded += async (_, _) =>
         {
             var snap = _snapshot;
@@ -66,8 +62,9 @@ public partial class AssemblyExplorerWindow : Window
         var root = new ExplorerNode
         {
             Kind = "Assembly",
-            Glyph = "\u2699",
-            Header = $"{System.IO.Path.GetFileName(snapshot.AssemblyPath)} — {snapshot.Types.Count} types",
+            Glyph = "⚙",
+            Header = $"{Path.GetFileName(snapshot.AssemblyPath)} — {snapshot.Types.Count} types",
+            IsExpanded = true,
         };
 
         foreach (var nsGroup in snapshot.Types
@@ -81,8 +78,9 @@ public partial class AssemblyExplorerWindow : Window
             var nsNode = new ExplorerNode
             {
                 Kind = "Namespace",
-                Glyph = "\u25a6",
+                Glyph = "▭",
                 Header = nsGroup.Key,
+                IsExpanded = true,
             };
 
             foreach (var type in nsGroup.OrderBy(t => t.FullName, StringComparer.Ordinal))
@@ -90,7 +88,7 @@ public partial class AssemblyExplorerWindow : Window
                 var typeNode = new ExplorerNode
                 {
                     Kind = "Type",
-                    Glyph = "\u2666",
+                    Glyph = "◆",
                     Header = Short(type.FullName),
                     FullName = type.FullName,
                     Source = type.Source,
@@ -128,10 +126,10 @@ public partial class AssemblyExplorerWindow : Window
                         typeNode.Children.Add(group);
                     }
 
-                    AddGroup("\u2012 Fields", fields);
-                    AddGroup("\u25c8 Properties", props);
-                    AddGroup("\u25b6 Methods", methods);
-                    AddGroup("\u26a1 Events", events);
+                    AddGroup("─ Fields", fields);
+                    AddGroup("◐ Properties", props);
+                    AddGroup("▶ Methods", methods);
+                    AddGroup("⚡ Events", events);
                 }
 
                 firstType ??= typeNode;
@@ -146,15 +144,16 @@ public partial class AssemblyExplorerWindow : Window
 
     static string ExtractMemberName(string signature)
     {
-        // Last identifier before '(' / ';' / '{' depending on member kind.
         var trimmed = signature.Trim();
         var stop = trimmed.IndexOfAny(['(', ';', '{']);
         if (stop < 0)
             stop = trimmed.Length;
-        var head = trimmed[..stop];
-        var parts = head.TrimEnd().Split(' ');
+        var head = trimmed[..stop].TrimEnd();
+        var parts = head.Split(' ');
         return parts.Length > 0 ? parts[^1] : trimmed;
     }
+
+    ExplorerNode? SelectedNode => TypeTree.SelectedItem as ExplorerNode;
 
     void OnTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
@@ -162,6 +161,7 @@ public partial class AssemblyExplorerWindow : Window
             return;
 
         SourceHeader.Text = node.FullName ?? node.Header;
+        SourceMeta.Text = $"{_watch.Name} · decompiled baseline";
         SourceText.Text = node.Source;
         SourceText.ScrollToHome();
 
@@ -175,6 +175,80 @@ public partial class AssemblyExplorerWindow : Window
                 SourceText.ScrollToLine(SourceText.GetLineIndexFromCharacterIndex(idx));
             }
         }
+    }
+
+    void OnPin(object sender, RoutedEventArgs e)
+    {
+        if (SelectedNode is not { Kind: "Type" } node || node.FullName is null)
+        {
+            MessageBox.Show(_owner, "Select a type in the tree to pin it.", "PatchDiff");
+            return;
+        }
+        PinRequested?.Invoke(node.FullName);
+    }
+
+    void OnDiffPrev(object sender, RoutedEventArgs e) => RequestDiff(againstCurrent: false);
+    void OnDiffCurrent(object sender, RoutedEventArgs e) => RequestDiff(againstCurrent: true);
+
+    void RequestDiff(bool againstCurrent)
+    {
+        try
+        {
+            var store = new RevisionStore();
+            var revs = store.List(_watch.Path).OrderBy(r => r.CapturedUtc).ToList();
+            if (revs.Count < 1)
+            {
+                MessageBox.Show(_owner, "No revisions archived yet for this DLL.", "PatchDiff");
+                return;
+            }
+
+            var newSnap = againstCurrent
+                ? SnapshotStore.Load(_watch.Path) ?? _snapshot
+                : _snapshot;
+            var oldSnap = newSnap;
+            if (againstCurrent)
+            {
+                var prev = revs.FirstOrDefault(r => r.Sha256 != newSnap.Sha256);
+                oldSnap = prev is null ? newSnap : store.LoadRevision(_watch.Path, prev.Sha256) ?? newSnap;
+            }
+            else
+            {
+                var idx = revs.FindIndex(r => r.Sha256 == newSnap.Sha256);
+                oldSnap = idx > 0 ? store.LoadRevision(_watch.Path, revs[idx - 1].Sha256) ?? newSnap : newSnap;
+            }
+
+            var diff = new DiffService().Compare(oldSnap, newSnap,
+                title: $"{Path.GetFileName(_watch.Path)} ({oldSnap.AssemblyVersion} → {newSnap.AssemblyVersion})");
+            diff.Intelligence = DiffIntelligence.Analyze(diff);
+
+            if (diff.HasChanges)
+                DiffRequested?.Invoke(diff);
+            else
+                MessageBox.Show(_owner, "No type changes between those revisions.", "PatchDiff");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(_owner, $"Compare failed: {ex.Message}", "PatchDiff");
+        }
+    }
+
+    void OnExportSingle(object sender, RoutedEventArgs e)
+    {
+        if (SelectedNode is not { Kind: "Type" } node || node.FullName is null)
+        {
+            MessageBox.Show(_owner, "Select a type first.", "PatchDiff");
+            return;
+        }
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export decompiled type as…",
+            InitialDirectory = Path.GetDirectoryName(_watch.Path),
+            FileName = MainWindow.ExportFileName(node.FullName),
+            Filter = "C# source (*.cs)|*.cs",
+        };
+        if (dlg.ShowDialog(_owner) != true)
+            return;
+        File.WriteAllText(dlg.FileName, node.Source);
     }
 }
 
@@ -197,16 +271,16 @@ public static class TreeViewHelper
         SelectItem(tree.ItemContainerGenerator, item);
     }
 
-    static void SelectItem(ItemContainerGenerator generator, object item)
+    static void SelectItem(System.Windows.Controls.ItemContainerGenerator generator, object item)
     {
-        if (generator.ContainerFromItem(item) is TreeViewItem container)
+        if (generator.ContainerFromItem(item) is System.Windows.Controls.TreeViewItem container)
         {
             container.IsSelected = true;
             return;
         }
         foreach (object obj in generator.Items)
         {
-            if (generator.ContainerFromItem(obj) is TreeViewItem parent)
+            if (generator.ContainerFromItem(obj) is System.Windows.Controls.TreeViewItem parent)
             {
                 parent.IsExpanded = true;
                 parent.UpdateLayout();

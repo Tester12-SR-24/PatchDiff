@@ -1,26 +1,29 @@
-<Window x:Class="PatchDiff.AssemblyExplorerWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:local="clr-namespace:PatchDiff"
-        Width="1150" Height="700"
-        Icon="icon.ico"
-        WindowStartupLocation="CenterOwner"
-        FontFamily="Segoe UI Variable Text, Segoe UI"
-        Background="#1e1e22"
-        TextElement.Foreground="#e6e6e6">
-
+<UserControl x:Class="PatchDiff.Views.BrowseView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:PatchDiff"
+             xmlns:views="clr-namespace:PatchDiff.Views"
+             Background="#1e1e22"
+             TextElement.Foreground="#e6e6e6">
     <DockPanel>
         <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,8">
-            <StackPanel>
-                <TextBlock x:Name="AssemblyNameText" FontWeight="SemiBold" FontSize="14"/>
-                <TextBlock x:Name="AssemblyMetaText" FontSize="11" Foreground="#9a9aa4" Margin="0,3,0,0"
-                           TextTrimming="CharacterEllipsis"/>
-            </StackPanel>
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="★ Pin" Click="OnPin" Padding="8,3" FontSize="11" ToolTip="Pin this type and attach a note (tracked across patches)"/>
+                    <Button Content="Diff vs previous" Click="OnDiffPrev" Padding="8,3" FontSize="11"/>
+                    <Button Content="Diff vs current" Click="OnDiffCurrent" Padding="8,3" FontSize="11"/>
+                    <Button Content="⤓ .cs" Click="OnExportSingle" Padding="8,3" FontSize="11" ToolTip="Export this type's decompiled source"/>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock x:Name="SourceHeader" FontWeight="SemiBold" FontSize="13" Text="Select a type or member"/>
+                    <TextBlock x:Name="SourceMeta" FontSize="10.5" Foreground="#9a9aa9" Margin="0,2,0,0"/>
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="360"/>
+                <ColumnDefinition Width="320"/>
                 <ColumnDefinition Width="4"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
@@ -35,8 +38,7 @@
                     </Style>
                 </TreeView.ItemContainerStyle>
                 <TreeView.Resources>
-                    <!-- assembly root -->
-                    <HierarchicalDataTemplate DataType="{x:Type local:ExplorerNode}"
+                    <HierarchicalDataTemplate DataType="{x:Type views:ExplorerNode}"
                                               ItemsSource="{Binding Children}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding Glyph}" Foreground="#8a8a95" Margin="0,0,6,0" FontFamily="Consolas"/>
@@ -69,9 +71,7 @@
 
             <GridSplitter Grid.Column="1" Background="Transparent" VerticalAlignment="Stretch" HorizontalAlignment="Left" Width="4"/>
 
-            <DockPanel Grid.Column="2" Margin="0,10,10,10">
-                <TextBlock DockPanel.Dock="Top" x:Name="SourceHeader" FontWeight="SemiBold" Margin="4,0,0,6"
-                           Text="Select a type or member"/>
+            <DockPanel Grid.Column="2" Margin="0,0,0,0">
                 <TextBox x:Name="SourceText" IsReadOnly="True" AcceptsReturn="True"
                          FontFamily="Consolas" FontSize="12" Background="#1b1b1f" BorderThickness="0"
                          Padding="10,8" TextWrapping="NoWrap"
@@ -80,4 +80,4 @@
             </DockPanel>
         </Grid>
     </DockPanel>
-</Window>
+</UserControl>

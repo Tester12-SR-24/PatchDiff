@@ -1,32 +1,24 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using DiffPlex.DiffBuilder.Model;
 using PatchDiff.Models;
 using PatchDiff.Services;
-using Application = System.Windows.Application;
+using UserControl = System.Windows.Controls.UserControl;
 using Brush = System.Windows.Media.Brush;
-using Clipboard = System.Windows.Clipboard;
-using DataFormats = System.Windows.DataFormats;
-using DragEventArgs = System.Windows.DragEventArgs;
-using MessageBox = System.Windows.MessageBox;
-using MessageBoxImage = System.Windows.MessageBoxImage;
-using MessageBoxButton = System.Windows.MessageBoxButton;
-using MessageBoxResult = System.Windows.MessageBoxResult;
 
-namespace PatchDiff;
+namespace PatchDiff.Views;
 
-public partial class DiffWindow : Window
+public partial class DiffView : UserControl
 {
     readonly AssemblyDiffResult _diff;
     readonly List<DiffRowVm> _rows = new();
 
-    public DiffWindow(AssemblyDiffResult diff)
+    public DiffView(AssemblyDiffResult diff)
     {
         InitializeComponent();
         _diff = diff;
-        Title = $"{diff.Title} — PatchDiff";
         TitleText.Text = diff.Title;
         AddedRun.Text = $"+{diff.Added} added";
         RemovedRun.Text = $"−{diff.Removed} removed";
@@ -35,15 +27,8 @@ public partial class DiffWindow : Window
         TypesList.ItemsSource = diff.TypeDiffs;
         FilterBox.TextChanged += (_, _) => ApplyFilter();
         BuildIntelPanel(diff.Intelligence);
-
         if (diff.TypeDiffs.Count > 0)
             TypesList.SelectedIndex = 0;
-
-        Loaded += (_, _) =>
-        {
-            if (Owner is not null && ActualHeight > Owner.ActualHeight)
-                Height = Owner.ActualHeight - 40;
-        };
     }
 
     void BuildIntelPanel(PatchSummary? intel)
@@ -89,6 +74,7 @@ public partial class DiffWindow : Window
                 $"{n.Member}\n    {n.OldText} → {n.NewText}  [{n.Direction} {Math.Abs(n.PercentDelta):0.#}%]"));
             AddCard($"NUMBER CHANGES ({intel.Numbers.Count})", body);
         }
+
         if (intel.Heat.Count > 0)
         {
             var body = string.Join("\n", intel.Heat.Take(6).Select(h => $"{h.Namespace} — {h.Count} ({h.Share:0}%)"));
@@ -103,7 +89,7 @@ public partial class DiffWindow : Window
         var view = (ICollectionView)CollectionViewSource.GetDefaultView(TypesList.ItemsSource);
         var query = FilterBox.Text.Trim();
         view.Filter = o => query.Length == 0 ||
-                          ((TypeDiff)o).FullName.Contains(query, StringComparison.OrdinalIgnoreCase);
+                           ((TypeDiff)o).FullName.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
     void OnFilterChanged(object sender, TextChangedEventArgs e) { }
@@ -127,12 +113,6 @@ public partial class DiffWindow : Window
         }
         DiffList.ItemsSource = null;
         DiffList.ItemsSource = _rows;
-    }
-
-    void OnOpenReport(object sender, RoutedEventArgs e)
-    {
-        var report = SnapshotStore.WriteHtmlReport(_diff);
-        Process.Start(new ProcessStartInfo(report) { UseShellExecute = true });
     }
 }
 
