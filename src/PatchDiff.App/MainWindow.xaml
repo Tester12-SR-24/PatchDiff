@@ -220,7 +220,10 @@
                                         BorderThickness="1" CornerRadius="9" Padding="13,11">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
+                                            <Image Source="icon.ico" Width="22" Height="22" Margin="0,0,7,0"
+                                                   VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                       VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <Border Style="{StaticResource PillBorder}">
                                                 <TextBlock Style="{StaticResource PillText}" Text="{Binding PillText}"/>
