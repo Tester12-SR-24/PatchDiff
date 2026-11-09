@@ -7,7 +7,8 @@
 **Watch .NET / Unity-game DLLs — get a decompiled diff every time they're patched.**
 
 Decompiles with the ILSpy engine · snapshot baselines · automatic patch detection ·
-revision archive with history & blame · patch intelligence · HTML diff reports · GUI and CLI.
+workstation UI (rail ▸ tabs ▸ intel rail) · pins & notes · revision archive with history,
+blame & restore · patch intelligence · HTML diff reports · GUI and CLI.
 
 *Licensed under the [WTFPL](#license) — do what the fuck you want to.*
 
@@ -29,29 +30,38 @@ decompiled source — without ever touching the game files themselves.
 
 ## Features
 
+- **Workstation UI (v0.3+)** — one unified window: a **left rail** (type search, watched
+  assemblies with live status pills, per-DLL timeline), a **tabbed center** (Overview /
+  Browse / Diff / History / Notes — closable, one tab per open view), and a **patch
+  intelligence rail** on the right.
 - **Watch mode** — point PatchDiff at one or more DLLs; it detects every update automatically
   (`FileSystemWatcher` + polling fallback), re-decompiles, and diffs against the baseline.
 - **Compare mode** — one-shot diff of any two DLLs (`patchdiff compare old.dll new.dll`).
 - **Decompiled diffs** — full C# decompilation via `ICSharpCode.Decompiler` (the ILSpy engine),
   type-by-type with line-level side-by-side highlighting (DiffPlex).
+- **Assembly explorer (Browse tab)** — ILSpy-style namespace → type → member tree with the
+  decompiled source beside it; clicking a member scrolls to and highlights it; **★ pin** any
+  type; one-click *diff vs previous / current* and `.cs` export from the tab.
 - **Patch intelligence** — each diff gets a plain-terms summary, a *namespace heat* breakdown
   (where the patch concentrated its changes), and detection of numeric tuning with
   **buff / nerf** classification (e.g. `Demo.Player.Health: 100 → 150 (+50%) [buff]`).
 - **Revision archive** — every version of every watched DLL is kept: a manifest per revision
   (SHA-256, assembly version, timestamp, type count) plus the original DLL bytes in a local
   archive, so you can study or restore any old build.
-- **History window & blame** — compare any two archived revisions on demand
-  (*diff vs previous* / *diff vs current*), restore an old build with one click, and walk the
-  full revision history member-by-member to see exactly when each member changed and in which
-  version.
+- **History tab & blame** — compare any two archived revisions on demand (*diff vs previous* /
+  *diff vs current*), restore an old build with one click, and walk the full revision history
+  member-by-member to see exactly when each member changed and in which version.
+- **Pins & notes** — pin types across patches and keep a persistent note on each; entries
+  light up with a *changed this patch* chip whenever their type is touched by a new patch.
+- **Settings** — tray balloon alerts, watch poll interval, revision retention (keep all / last
+  10 / 50 / 100), and start-minimized-to-tray.
 - **HTML reports** — self-contained, start-collapsed diff reports for every detected patch,
   written next to the snapshots.
-- **Assembly explorer** — browse namespaces, types and members of any watched DLL and read the
-  decompiled source inline.
 - **Type search** — search across every decompiled type in all watched baselines at once.
 - **Persistence & auto-start** — watch list, timeline, baselines and window state survive
   restarts; re-checks on launch; optional *Start with Windows* so a rebooted PC keeps watching.
-- **System tray** — close-to-tray, tray menu and balloon alerts on detected patches.
+- **System tray** — close-to-tray, tray menu and balloon alerts on detected patches;
+  single-instance (a second launch focuses the running app); drag & drop DLLs or folders.
 
 ## Install on Windows
 
@@ -134,11 +144,19 @@ and writes a self-contained HTML report.
 
 ### GUI
 
-The desktop app shows the same data as a **patch feed**: a card per watched DLL
-(`UP TO DATE` / `ANALYZING…` / `NEW BASELINE` / `UPDATED`), a timeline of detected
-updates, an activity log, and a side-by-side colored diff viewer (*Open diff*) with the
-patch-intel panel, one-click HTML reports, per-card **History** (revision compare + restore),
-**Browse** (assembly explorer) and **Sources** (export the decompiled snapshot to `.cs` files).
+The desktop app is a **workstation shell**:
+
+- **Left rail** — search box over every decompiled `.cs` file in all baselines (results open
+  the source directly), your watched assemblies with live status pills
+  (`UP TO DATE` / `ANALYZING…` / `NEW BASELINE` / `UPDATED`), and a per-patch timeline.
+- **Center tabs** — an Overview tab, plus closable **Browse** (assembly explorer), **Diff**
+  (side-by-side colored diff), **History** (revision archive: compare any two versions,
+  restore old builds) and **Notes** (pins + persistent notes with *changed this patch*
+  chips) tabs — one per assembly or diff you open.
+- **Right intel rail** — the patch-intelligence readout for the selected diff: plain-terms
+  summary, namespace heat, and buff/nerf number changes.
+- Toolbar actions cover adding DLLs or a whole `…_Data/Managed` folder, re-checking,
+  exporting decompiled sources, opening HTML reports, and the settings dialog (⚙).
 
 ### Persistence & auto-refresh (ILSpy-style)
 
