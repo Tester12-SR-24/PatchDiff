@@ -9,7 +9,7 @@
     <RootNamespace>PatchDiff</RootNamespace>
     <AssemblyName>PatchDiff</AssemblyName>
     <Product>PatchDiff</Product>
-    <Version>0.2.0</Version>
+    <Version>0.2.5</Version>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
