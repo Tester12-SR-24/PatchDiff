@@ -178,10 +178,14 @@ public partial class MainWindow : Window
     sealed class SearchResult
     {
         public required string TypeName { get; init; }
+        public required string CsFile { get; init; }
         public required string AssemblyName { get; init; }
         public required string AssemblyPath { get; init; }
         public required string Source { get; init; }
     }
+
+    internal static string ExportFileName(string fullName) =>
+        string.Concat(fullName.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_')) + ".cs";
 
     readonly Dictionary<string, AssemblySnapshot> _baselineCache = new(StringComparer.OrdinalIgnoreCase);
     CancellationTokenSource? _searchCts;
@@ -220,11 +224,16 @@ public partial class MainWindow : Window
                         continue;
                     foreach (var t in snap.Types)
                     {
-                        if (t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase))
+                        // Search matches the exported .cs file name (type name),
+                        // never the contents of the file.
+                        var csFile = ExportFileName(t.FullName);
+                        if (t.FullName.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                            csFile.Contains(query, StringComparison.OrdinalIgnoreCase))
                         {
                             list.Add(new SearchResult
                             {
                                 TypeName = t.FullName,
+                                CsFile = csFile,
                                 AssemblyName = w.Name,
                                 AssemblyPath = w.Path,
                                 Source = t.Source,

@@ -114,8 +114,7 @@ td.same{background:#fff}
         foreach (var td in diff.TypeDiffs.Where(d => d.Change != ChangeKind.None))
         {
             var (addLines, remLines, modLines) = LineCounts(td);
-            var openAttr = td.Change == ChangeKind.Modified ? " open" : "";
-            sb.Append($"<details class=\"type\"{openAttr}>");
+            sb.Append("<details class=\"type\">");
             sb.Append($"<summary><span class=\"arrow\">▶</span>{Escape(td.FullName)}");
             if (addLines > 0) sb.Append($"<span class=\"badge b-add\">+{addLines}</span>");
             if (remLines > 0) sb.Append($"<span class=\"badge b-rem\">−{remLines}</span>");

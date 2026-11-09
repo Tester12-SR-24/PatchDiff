@@ -157,7 +157,9 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="2">
-                                    <TextBlock Text="{Binding TypeName}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding CsFile}" FontWeight="SemiBold" FontFamily="Consolas" FontSize="12"/>
+                                    <TextBlock Text="{Binding TypeName}" Foreground="#6f6f79" FontSize="10.5"
+                                               Margin="8,0,0,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding AssemblyName}" Foreground="#6f6f79" FontSize="10.5"
                                                Margin="10,0,0,0" VerticalAlignment="Center"/>
                                 </StackPanel>
