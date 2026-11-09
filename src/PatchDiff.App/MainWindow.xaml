@@ -126,15 +126,15 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                     <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,0">
-                        <Button Content="↻ Re-check" Click="OnRecheck" Padding="7,3" FontSize="11"/>
-                        <Button Content="Diff" Click="OnOpenDiff" Padding="7,3" FontSize="11" ToolTip="Open the latest diff"/>
-                        <Button Content="Browse" Click="OnBrowse" Padding="7,3" FontSize="11"/>
-                        <Button Content="History" Click="OnHistory" Padding="7,3" FontSize="11"/>
-                        <Button Content="Notes" Click="OnOpenNotes" Padding="7,3" FontSize="11"/>
-                        <Button Content="Sources" Click="OnExportSources" Padding="7,3" FontSize="11"/>
-                        <Button Content="Report" Click="OnOpenReport" Padding="7,3" FontSize="11"/>
-                        <Button Content="🗑 Remove" Click="OnRemoveWatch" Padding="7,3" FontSize="11"/>
-                        <Button Content="× All" Click="OnRemoveAll" Padding="7,3" FontSize="11"/>
+                        <Button Content="↻ Re-check" Click="OnRecheck" Padding="7,3" FontSize="11"/> Margin="0,0,6,4"
+                        <Button Content="Diff" Click="OnOpenDiff" Padding="7,3" FontSize="11" ToolTip="Open the latest diff"/> Margin="0,0,6,4"
+                        <Button Content="Browse" Click="OnBrowse" Padding="7,3" FontSize="11"/> Margin="0,0,6,4"
+                        <Button Content="History" Click="OnHistory" Padding="7,3" FontSize="11"/> Margin="0,0,6,4"
+                        <Button Content="Notes" Click="OnOpenNotes" Padding="7,3" FontSize="11"/> Margin="0,0,6,4"
+                        <Button Content="Sources" Click="OnExportSources" Padding="7,3" FontSize="11"/> Margin="0,0,6,4"
+                        <Button Content="Report" Click="OnOpenReport" Padding="7,3" FontSize="11"/> Margin="0,0,6,4"
+                        <Button Content="🗑 Remove" Click="OnRemoveWatch" Padding="7,3" FontSize="11"/> Margin="0,0,6,4"
+                        <Button Content="× All" Click="OnRemoveAll" Padding="7,3" FontSize="11"/> Margin="0,0,6,4"
                     </WrapPanel>
                     <TextBlock DockPanel.Dock="Top" Text="TIMELINE" Style="{StaticResource SectionHeader}"/>
                     <ListBox x:Name="TimelineList" BorderThickness="0" Background="Transparent"
