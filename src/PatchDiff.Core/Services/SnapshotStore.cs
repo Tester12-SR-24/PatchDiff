@@ -24,13 +24,14 @@ public sealed class SnapshotStore
 
     static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
-    public static string FolderFor(string dllPath)
+    public static string KeyNameFor(string dllPath)
     {
         var normalized = Path.GetFullPath(dllPath).ToLowerInvariant();
-        var key = Convert.ToHexString(SHA256.HashData(
+        return Convert.ToHexString(SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(normalized)))[..16];
-        return Path.Combine(Root, key);
     }
+
+    public static string FolderFor(string dllPath) => Path.Combine(Root, KeyNameFor(dllPath));
 
     public static AssemblySnapshot? Load(string dllPath)
     {

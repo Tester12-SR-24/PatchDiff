@@ -21,6 +21,7 @@ internal static class PatchDiffCli
             {
                 "compare" => await CompareAsync(args[1..]),
                 "watch" => await WatchAsync(args[1..]),
+                "history" => History(args[1..]),
                 _ => Unknown(args[0]),
             };
         }
@@ -55,8 +56,27 @@ internal static class PatchDiffCli
         var newSnap = await Task.Run(() => new DecompilerService().Build(current, Progress));
         var diff = new DiffService().Compare(oldSnap, newSnap,
             title: $"{Path.GetFileName(old)} → {Path.GetFileName(current)}");
+        diff.Intelligence = DiffIntelligence.Analyze(diff);
 
         PrintSummary(diff);
+
+        if (diff.Intelligence is { } intel)
+        {
+            if (intel.PlainTerms.Count > 0)
+            {
+                Console.WriteLine("  in plain terms:");
+                foreach (var t in intel.PlainTerms)
+                    Console.WriteLine($"    • {t}");
+            }
+            if (intel.Numbers.Count > 0)
+            {
+                Console.WriteLine($"  number changes ({intel.Numbers.Count}):");
+                foreach (var n in intel.Numbers.Take(10))
+                    Console.WriteLine($"    [{n.Direction}] {n.Type}.{n.Member}: {n.OldText} -> {n.NewText} ({n.PercentDelta:+0.##;-0.##}%)");
+                if (intel.Numbers.Count > 10)
+                    Console.WriteLine($"    ... and {intel.Numbers.Count - 10} more");
+            }
+        }
 
         var reportPath = output ?? SnapshotStore.WriteHtmlReport(diff);
         SnapshotStore.WriteHtmlReportTo(diff, reportPath);
@@ -111,6 +131,28 @@ internal static class PatchDiffCli
         return 0;
     }
 
+    // ---------------- history ----------------
+
+    static int History(string[] rest)
+    {
+        if (rest.Length == 0)
+        {
+            Error("usage: patchdiff history <watched.dll>");
+            return 1;
+        }
+        var store = new RevisionStore();
+        var revs = store.List(rest[0]);
+        if (revs.Count == 0)
+        {
+            Console.WriteLine("No revisions recorded for this DLL.");
+            return 0;
+        }
+        Console.WriteLine($"Revisions of {Path.GetFileName(rest[0])} (oldest → newest):");
+        foreach (var r in revs)
+            Console.WriteLine($"  {r.Sha256[..12]}…  v{r.AssemblyVersion}  {r.CapturedUtc.ToLocalTime():yyyy-MM-dd HH:mm}  {r.TypeCount} types");
+        return 0;
+    }
+
     // ---------------- helpers ----------------
 
     static void Progress(int done, int total) =>
@@ -152,6 +194,7 @@ PatchDiff — decompile, snapshot and diff .NET/Unity DLLs
 usage:
   patchdiff compare <old.dll> <new.dll> [-o report.html]   one-shot diff of two assemblies
   patchdiff watch [--poll seconds] <dll...>                watch DLLs, auto-diff on update
+  patchdiff history <watched.dll>                            list archived revisions
   patchdiff version
 
 Watch keeps a baseline snapshot in %LOCALAPPDATA%\PatchDiff\Snapshots; whenever a DLL

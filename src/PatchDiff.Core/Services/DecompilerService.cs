@@ -22,7 +22,10 @@ public sealed class DecompilerService
         @"C:\Windows\Microsoft.NET\assembly\GAC_MSIL",
     };
 
-    public AssemblySnapshot Build(string dllPath, Action<int, int>? progress = null)
+    public AssemblySnapshot Build(string dllPath, Action<int, int>? progress = null) =>
+        BuildWithBytes(dllPath, progress).snapshot;
+
+    public (AssemblySnapshot snapshot, byte[] bytes) BuildWithBytes(string dllPath, Action<int, int>? progress = null)
     {
         byte[] bytes;
         {
@@ -131,7 +134,7 @@ public sealed class DecompilerService
 
         }
 
-        return new AssemblySnapshot
+        var snapshot = new AssemblySnapshot
         {
             AssemblyPath = Path.GetFullPath(dllPath),
             Sha256 = sha,
@@ -140,6 +143,7 @@ public sealed class DecompilerService
             SchemaVersion = AssemblySnapshot.CurrentSchemaVersion,
             Types = types,
         };
+        return (snapshot, bytes);
     }
 
     static FileStream OpenWithRetry(string path, int attempts = 24, int delayMs = 500)

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body{font-family:var(--font-sans,'Segoe UI',sans-serif);margin:0;color:var(--foreground,#e6e6e6)}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 16px 40px}
+  h1{font-size:20px;margin:18px 0 4px}
+  p.sub{color:var(--muted-foreground,#9a9a9a);font-size:13px;margin:0 0 16px}
+  h2.mock-title{font-size:14px;margin:30px 0 8px;color:var(--accent,#4cc2ff)}
+  .mock{border-radius:10px;overflow:hidden;border:1px solid #3a3a42;background:#1e1e22;box-shadow:0 12px 34px rgba(0,0,0,.35)}
+  .bar{height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;background:#26262b;border-bottom:1px solid #33333a;font-size:12px;color:#bcbcc4}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .bar .addr{flex:1;text-align:center;opacity:.65}
+  .pill{display:inline-block;font-size:10px;padding:1px 8px;border-radius:9px}
+  .p-mod{background:#8a6d1f;color:#ffe9a8}.p-add{background:#2b6b3a;color:#b8f5c9}
+  .p-del{background:#7a2e33;color:#ffc4c8}.p-ok{background:#274a33;color:#9fe0b3}
+  .p-run{background:#2b4b73;color:#a8d3ff}
+  .btn{display:inline-block;font-size:11px;padding:5px 11px;border-radius:6px;background:#37507e;color:#dbe8ff;margin-right:6px;cursor:default}
+  .btn.ghost{background:#2e2e35;color:#cfcfd6}
+  .meta{font-size:11px;color:#9a9aa4}
+  .mono{font-family:var(--font-mono,Consolas,monospace)}
+
+  /* M1 dashboard 2.0 */
+  .m1{display:grid;grid-template-columns:1fr 260px}
+  .m1 .main{padding:14px}
+  .m1 .row{display:flex;gap:12px}
+  .stat{flex:1;background:#26262b;border:1px solid #38383f;border-radius:9px;padding:10px 14px}
+  .stat b{font-size:22px;display:block}
+  .stat span{font-size:10.5px;color:#9a9aa4}
+  .m1 .card{background:#26262b;border:1px solid #38383f;border-radius:9px;padding:12px 14px;margin-top:12px;display:flex;gap:12px;align-items:center}
+  .m1 .spark{height:34px;flex:1}
+  .m1 .side{border-left:1px solid #33333a;padding:12px}
+  .m1 .side h5{font-size:11px;letter-spacing:.08em;color:#8a8a95;margin:2px 0 10px;text-transform:uppercase}
+  .evt{font-size:11.5px;padding:8px 0;border-top:1px dashed #38383f;line-height:1.5}
+  .evt .t{color:#8a8a95;font-size:10.5px}
+
+  /* M2 explorer-centric */
+  .m2{display:grid;grid-template-columns:230px 1fr}
+  .m2 .nav{border-right:1px solid #33333a;padding:10px;font-size:12.5px}
+  .m2 .nav .dll{padding:8px;border-radius:6px;margin-bottom:4px}
+  .m2 .nav .dll.sel{background:#2f3f56;outline:1px solid #4a76c8}
+  .m2 .tabs{display:flex;gap:2px;background:#232327;padding:6px 10px 0}
+  .m2 .tab{font-size:12px;padding:6px 14px;border-radius:6px 6px 0 0;background:#2b2b31;color:#9a9aa4}
+  .m2 .tab.on{background:#1b1b1f;color:#e6e6e6;border:1px solid #33333a;border-bottom:none}
+  .m2 .view{padding:10px 12px;font-size:12.5px;min-height:340px}
+
+  /* M3 command palette */
+  .m3{padding:0}
+  .m3 .hero{padding:26px 20px 12px;text-align:center}
+  .m3 .box{margin:0 24px;background:#26262b;border:1px solid #4a76c8;border-radius:9px;padding:10px 14px;
+           display:flex;align-items:center;gap:10px;font-size:14px}
+  .m3 .caret{width:8px;height:16px;background:#4cc2ff;animation:none}
+  .m3 .res{margin:10px 24px;font-size:12.5px}
+  .m3 .res .r{display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px}
+  .m3 .res .r.sel{background:#2f3f56}
+  .m3 .foot{padding:10px 24px;display:flex;gap:10px;justify-content:center}
+
+  /* M4 ops console */
+  .m4 .top{display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid #33333a;align-items:center}
+  .m4 .live{color:#ff6b6b;font-size:11px;font-weight:600;letter-spacing:.1em}
+  .m4 .cols{display:grid;grid-template-columns:1fr 240px}
+  .m4 .stream{padding:8px 14px;font-size:12px;min-height:300px}
+  .m4 .stream .line{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #26262b;align-items:baseline}
+  .m4 .stream .lvl{width:64px;font-size:10px;font-weight:700;letter-spacing:.06em}
+  .m4 .right{border-left:1px solid #33333a;padding:10px}
+
+  /* M5 compact tray window */
+  .m5wrap{display:flex;gap:16px;align-items:flex-start}
+  .m5{width:400px}
+  .m5 .list{padding:8px}
+  .m5 .it{background:#26262b;border:1px solid #38383f;border-radius:8px;padding:9px 11px;margin-bottom:8px}
+  .m5 .it .name{font-weight:600;font-size:12.5px;display:flex;justify-content:space-between}
+  .m5 .arrow{color:#9a9aa4}
+  .m5 .detail{margin:8px 0 4px;font-size:11.5px;border-top:1px dashed #38383f;padding-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>PatchDiff — 5 GUI mockups</h1>
+<p class="sub">Refresh candidates for the desktop app. All keep: watch + auto-diff engine, timeline, tray presence, HTML reports.</p>
+
+<!-- M1 -->
+<h2 class="mock-title">1 — Dashboard 2.0 (evolution of current)</h2>
+<p class="sub">Stat strip + activity sparkline + roomier cards, side rail for timeline. Least disruption, biggest polish.</p>
+<div class="mock">
+  <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="addr">PatchDiff</span><span class="pill p-ok">watching 3</span></div>
+  <div class="m1">
+    <div class="main">
+      <div class="row">
+        <div class="stat"><b style="color:#9fe0b3">3</b><span>watched</span></div>
+        <div class="stat"><b style="color:#ffdf8e">361</b><span>type changes this week</span></div>
+        <div class="stat"><b>431</b><span>types tracked</span></div>
+      </div>
+      <svg class="spark" width="100%" height="34" viewBox="0 0 400 34" preserveAspectRatio="none">
+        <polyline points="0,30 40,28 80,22 120,24 160,10 200,14 240,6 280,18 320,20 360,12 400,8" fill="none" stroke="#4cc2ff" stroke-width="2"/>
+      </svg>
+      <div class="card">
+        <div style="flex:1">
+          <div><b>Assembly-CSharp.dll</b> <span class="pill p-mod">UPDATED</span></div>
+          <div class="meta">v1.14.2 · 431 types · +15 −41 ~305 in the last patch</div>
+        </div>
+        <span class="btn">Diff</span><span class="btn ghost">Report</span><span class="btn ghost">Browse</span>
+      </div>
+      <div class="card">
+        <div style="flex:1">
+          <div><b>Assembly-CSharp-firstpass.dll</b> <span class="pill p-ok">UP TO DATE</span></div>
+          <div class="meta">v1.0.0 · 88 types · quiet for 6 days</div>
+        </div>
+        <span class="btn ghost">Browse</span>
+      </div>
+    </div>
+    <div class="side">
+      <h5>Live timeline</h5>
+      <div class="evt"><div class="t">14:02 · today</div><b>Assembly-CSharp.dll</b> patched — 361 changes</div>
+      <div class="evt"><div class="t">09:37</div><b>Network.dll</b> hash changed, 0 type diffs</div>
+      <div class="evt"><div class="t">yest.</div><b>Firstpass.dll</b> +2 −0 ~5</div>
+      <div style="margin-top:12px"><span class="btn">➕ Add</span><span class="btn ghost">Folder</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- M2 -->
+<h2 class="mock-title">2 — Explorer-centric (ILSpy-spirit)</h2>
+<p class="sub">Watch list becomes a sidebar; the assembly browser is the main surface, diffs open as tabs.</p>
+<div class="mock">
+  <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="addr">PatchDiff Explorer</span></div>
+  <div class="m2">
+    <div class="nav">
+      <h5 style="font-size:11px;color:#8a8a95;letter-spacing:.08em;margin:4px 0 8px">WATCHED</h5>
+      <div class="dll sel"><b>Assembly-CSharp.dll</b> <span class="pill p-mod">~361</span><div class="meta">v1.14.2</div></div>
+      <div class="dll"><b>Firstpass.dll</b> <span class="pill p-ok">ok</span></div>
+      <div class="dll"><b>Plugins.dll</b> <span class="pill p-run">…</span></div>
+      <div style="margin-top:10px"><span class="btn">➕</span><span class="btn ghost">📂</span></div>
+      <h5 style="font-size:11px;color:#8a8a95;letter-spacing:.08em;margin:14px 0 6px">TIMELINE</h5>
+      <div class="evt"><div class="t">14:02</div>361 changes detected</div>
+    </div>
+    <div>
+      <div class="tabs"><div class="tab on">🔍 Browse — Assembly-CSharp</div><div class="tab">Diff: v1.14.1 → v1.14.2</div><div class="tab">＋</div></div>
+      <div class="view">
+        <div class="ns" style="color:#7fb2e8;font-weight:600">▾ Game.Combat <span class="meta">(312)</span></div>
+        <div class="mono" style="padding-left:14px;color:#cdd3de">▾ PlayerController <span class="pill p-mod">~2</span></div>
+        <div class="mono" style="padding-left:30px;color:#9a9aa4">▸ Fields (2) · Properties (1) · Methods (3)</div>
+        <div class="mono" style="padding-left:30px;color:#e6e6e6;background:#22371f;display:inline-block;padding-right:8px">    public void DoubleJump() { … }</div>
+        <div class="mono" style="padding-left:14px;color:#cdd3de;margin-top:4px">▸ Enemy <span class="pill p-del">−1</span></div>
+        <div class="mono" style="padding-left:14px;color:#cdd3de">▸ BossRush <span class="pill p-add">NEW</span></div>
+        <div class="ns" style="color:#7fb2e8;font-weight:600;margin-top:8px">▸ Game.UI <span class="meta">(44)</span></div>
+        <div style="margin-top:12px"><span class="btn">⤓ Export sources</span><span class="btn ghost">HTML report</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- M3 -->
+<h2 class="mock-title">3 — Command palette (keyboard-first)</h2>
+<p class="sub">One box does everything: type to find types/DLLs/actions. For people who live on the keyboard.</p>
+<div class="mock">
+  <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="addr">PatchDiff — press Ctrl+K anywhere</span></div>
+  <div class="m3">
+    <div class="hero">
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px">What are you looking for?</div>
+      <div class="box mono"><span style="color:#4cc2ff">›</span> play<span class="caret"></span></div>
+    </div>
+    <div class="res">
+      <div class="r sel"><span class="mono">PlayerController.cs</span><span class="meta">Assembly-CSharp · browse</span></div>
+      <div class="r"><span class="mono">PlayerCombat.cs</span><span class="meta">Assembly-CSharp · browse</span></div>
+      <div class="r"><span class="mono">PlayerCasting.cs</span><span class="meta">Assembly-CSharp · modified in last patch</span></div>
+      <div class="r"><span class="mono">▶ Check all assemblies now</span><span class="meta">action</span></div>
+      <div class="r"><span class="mono">▶ Watch a new DLL…</span><span class="meta">action</span></div>
+    </div>
+    <div class="foot"><span class="btn">↵ open</span><span class="btn ghost">⇥ diff</span><span class="btn ghost">esc close</span></div>
+  </div>
+</div>
+
+<!-- M4 -->
+<h2 class="mock-title">4 — Ops console (monitoring-first)</h2>
+<p class="sub">A live event stream with severity levels + health rail. Feels like watching game servers.</p>
+<div class="mock">
+  <div class="m4">
+    <div class="top">
+      <span class="live">● LIVE</span>
+      <span class="meta">3 assemblies · poll 10s · watcher healthy</span>
+      <span style="flex:1"></span>
+      <span class="pill p-mod">1 unreviewed patch</span>
+      <span class="btn">Pause</span>
+    </div>
+    <div class="cols">
+      <div class="stream mono">
+        <div class="line"><span class="lvl" style="color:#ffdf8e">UPDATE</span><span>14:02:11</span><span>Assembly-CSharp.dll hash changed (a41f…9c → 77de…02)</span></div>
+        <div class="line"><span class="lvl" style="color:#9fe0b3">DIFF</span><span>14:02:40</span><span>decompiled 431 types in 12.4s → <b style="color:#b8f5c9">+15</b> <b style="color:#ffc4c8">−41</b> <b style="color:#ffdf8e">~305</b></span></div>
+        <div class="line"><span class="lvl" style="color:#a8d3ff">REPORT</span><span>14:02:41</span><span>wrote …Reports\Assembly-CSharp_140241.html</span></div>
+        <div class="line"><span class="lvl" style="color:#8a8a95">INFO</span><span>14:02:41</span><span>baseline updated, next poll in 10s</span></div>
+        <div class="line"><span class="lvl" style="color:#8a8a95">INFO</span><span>14:03:11</span><span>poll: no changes (3 checked)</span></div>
+      </div>
+      <div class="right">
+        <h5 style="font-size:11px;color:#8a8a95;letter-spacing:.08em;margin:2px 0 8px">HEALTH</h5>
+        <div class="meta" style="line-height:2">
+          <div>🟢 Assembly-CSharp — patched 14:02</div>
+          <div>🟢 Firstpass — 6d quiet</div>
+          <div>🟡 Plugins — decompiling 340/812</div>
+          <div>⚪ Network — 0 diffs (byte-only change)</div>
+        </div>
+        <div style="margin-top:12px"><span class="btn">Open diff</span><br><span class="btn ghost" style="margin-top:8px">Reports</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- M5 -->
+<h2 class="mock-title">5 — Compact tray companion</h2>
+<p class="sub">A small always-on-hand window for tray-first usage; details expand inline.</p>
+<div class="m5wrap">
+  <div class="mock m5">
+    <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="addr">PatchDiff</span><span class="pill p-ok">live</span></div>
+    <div class="list">
+      <div class="it">
+        <div class="name"><span>Assembly-CSharp.dll</span><span class="pill p-mod">~361</span></div>
+        <div class="detail">
+          <div class="meta">v1.14.1 → v1.14.2 · 14:02</div>
+          <div class="mono" style="font-size:11px;margin-top:4px">+15 added · −41 removed · ~305 modified</div>
+          <div style="margin-top:8px"><span class="btn">Diff</span><span class="btn ghost">Report</span><span class="btn ghost">⋯</span></div>
+        </div>
+      </div>
+      <div class="it">
+        <div class="name"><span>Firstpass.dll</span><span class="pill p-ok">ok</span></div>
+      </div>
+      <div class="it">
+        <div class="name"><span>Plugins.dll</span><span class="pill p-run">340/812</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px">
+        <span class="btn">➕ Watch DLL</span><span class="btn ghost">Settings</span>
+      </div>
+    </div>
+  </div>
+  <div style="max-width:280px" class="meta">
+    <p style="margin-top:60px;font-size:12.5px;line-height:1.7">
+      Sized to sit beside other windows or live as a floating companion.<br><br>
+      Cards collapse to one line; the newest patch expands inline.<br><br>
+      Pairs with the tray icon — closing the window is just "collapse".
+    </p>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

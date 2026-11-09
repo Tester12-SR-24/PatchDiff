@@ -52,6 +52,7 @@ public sealed class TypeDiff
 public sealed class AssemblyDiffResult
 {
     public string Title { get; set; } = "";
+    public PatchSummary? Intelligence { get; set; }
     public string OldSha { get; set; } = "";
     public string NewSha { get; set; } = "";
     public List<TypeDiff> TypeDiffs { get; set; } = new();

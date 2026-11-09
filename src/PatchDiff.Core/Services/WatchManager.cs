@@ -88,6 +88,7 @@ public sealed class WatchManager : IDisposable
 
     readonly DecompilerService _decompiler = new();
     readonly DiffService _diff = new();
+    readonly RevisionStore _revisions = new();
     readonly SemaphoreSlim _checkGate = new(1, 1);
 
     /// <summary>Poll fallback period: FileSystemWatcher can miss events (network drives, fast renames).</summary>
@@ -258,7 +259,7 @@ public sealed class WatchManager : IDisposable
             w.PillText = "ANALYZING…";
             w.LastCheck = DateTime.Now.ToString("HH:mm:ss");
 
-            var newSnap = _decompiler.Build(w.Path, (done, total) =>
+            var (newSnap, newBytes) = _decompiler.BuildWithBytes(w.Path, (done, total) =>
                 w.Status = $"Decompiling {done}/{total}…");
             w.AssemblyVersion = newSnap.AssemblyVersion;
             w.Meta1 = $"v{newSnap.AssemblyVersion} · {newSnap.Types.Count} types";
@@ -268,6 +269,7 @@ public sealed class WatchManager : IDisposable
             // (e.g. no member signatures) — silently upgrade the baseline.
             if (oldSnap is not null && oldSnap.Sha256 == newSnap.Sha256)
             {
+                _revisions.Append(newSnap, newBytes);
                 SnapshotStore.Save(newSnap);
                 w.Status = "Baseline upgraded";
                 w.PillKind = "ok";
@@ -278,6 +280,7 @@ public sealed class WatchManager : IDisposable
 
             if (oldSnap is null)
             {
+                _revisions.Append(newSnap, newBytes);
                 SnapshotStore.Save(newSnap);
                 w.Status = $"Baseline saved (v{newSnap.AssemblyVersion})";
                 w.PillKind = "baseline";
@@ -289,6 +292,8 @@ public sealed class WatchManager : IDisposable
             }
 
             var diff = _diff.Compare(oldSnap, newSnap);
+            diff.Intelligence = DiffIntelligence.Analyze(diff);
+            _revisions.Append(newSnap, newBytes);
             SnapshotStore.Save(newSnap);
 
             if (diff.HasChanges)

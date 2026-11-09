@@ -33,6 +33,8 @@
                 <ColumnDefinition Width="310"/>
                 <ColumnDefinition Width="4"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="250"/>
             </Grid.ColumnDefinitions>
 
             <DockPanel Grid.Column="0">
@@ -99,6 +101,13 @@
                         </GridView>
                     </ListView.View>
                 </ListView>
+            </DockPanel>
+
+            <DockPanel Grid.Column="4" Margin="0,10,10,10">
+                <TextBlock DockPanel.Dock="Top" Text="🧠 THIS PATCH" FontSize="11" Foreground="#8a8a95" Margin="2,0,0,6"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="IntelPanel"/>
+                </ScrollViewer>
             </DockPanel>
         </Grid>
     </DockPanel>

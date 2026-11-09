@@ -309,6 +309,20 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
     }
 
+    void OnHistory(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is WatchedDll w)
+        {
+            var revs = new RevisionStore().List(w.Path);
+            if (revs.Count == 0)
+            {
+                AddLog($"No revisions archived yet for {w.Name}.");
+                return;
+            }
+            new HistoryWindow(w) { Owner = this }.Show();
+        }
+    }
+
     // ---------- assembly explorer (ILSpy assembly-tree port) ----------
 
     void OnBrowse(object sender, RoutedEventArgs e)
