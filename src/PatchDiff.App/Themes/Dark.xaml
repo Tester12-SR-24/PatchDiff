@@ -14,8 +14,17 @@
     <SolidColorBrush x:Key="SelectBrush" Color="#2a3a52"/>
     <SolidColorBrush x:Key="SelBorderBrush" Color="#4a76c8"/>
 
+    <!-- accent gradient for primary buttons -->
+    <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#48c4ff" Offset="0"/>
+        <GradientStop Color="#2f9ff0" Offset="1"/>
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#63d1ff"/>
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#2b8fd9"/>
+
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
     </Style>
 
     <!-- ============ Menu ============ -->
@@ -87,22 +96,57 @@
         <Setter Property="Padding" Value="11,5"/>
         <Setter Property="Margin" Value="0,0,8,0"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
-                            CornerRadius="6" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            CornerRadius="7" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                           RecognizesAccessKey="True"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource SelBorderBrush}"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="#3a3d47"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentPressedBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- primary (accent-filled) button -->
+    <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{StaticResource AccentGradient}"/>
+        <Setter Property="Foreground" Value="#0b1e2d"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                            CornerRadius="7" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                            <Setter Property="Foreground" Value="#08131c"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentPressedBrush}"/>
+                            <Setter Property="Foreground" Value="#e9f6ff"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.45"/>
@@ -155,7 +199,15 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Border Background="#4a4d58" CornerRadius="4" Margin="2"/>
+                                            <Border x:Name="ThumbBd" Background="#4a4d58" CornerRadius="4" Margin="2"/>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ThumbBd" Property="Background" Value="#5d606c"/>
+                                                </Trigger>
+                                                <Trigger Property="IsDragging" Value="True">
+                                                    <Setter TargetName="ThumbBd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
@@ -181,6 +233,26 @@
         <Setter Property="Padding" Value="6,4"/>
         <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>
         <Setter Property="SelectionBrush" Value="#3a5a8a"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                            CornerRadius="6" SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" Focusable="False"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ToolTip">

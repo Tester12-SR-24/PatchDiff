@@ -5,6 +5,7 @@
         Width="1150" Height="680"
         Icon="icon.ico"
         WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
         Background="#1e1e22"
         TextElement.Foreground="#e6e6e6">
 
@@ -15,7 +16,8 @@
     <DockPanel>
         <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,8">
             <DockPanel>
-                <Button DockPanel.Dock="Right" Content="⤓ Open HTML report" Click="OnOpenReport" Padding="10,4"/>
+                <Button DockPanel.Dock="Right" Content="⤓ Open HTML report" Click="OnOpenReport" Padding="10,4"
+                        Style="{StaticResource AccentButton}"/>
                 <StackPanel>
                     <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="14"/>
                     <StackPanel Orientation="Horizontal" Margin="0,3,0,0">

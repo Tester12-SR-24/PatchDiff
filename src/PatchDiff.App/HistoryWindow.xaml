@@ -4,6 +4,7 @@
         Width="780" Height="540"
         Icon="icon.ico"
         WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
         Background="#1e1e22"
         TextElement.Foreground="#e6e6e6">
 

@@ -6,13 +6,56 @@
 
 **Watch .NET / Unity-game DLLs — get a decompiled diff every time they're patched.**
 
-Decompiles with the ILSpy engine · snapshot baselines · automatic patch detection · HTML diff reports · GUI and CLI.
+Decompiles with the ILSpy engine · snapshot baselines · automatic patch detection ·
+revision archive with history & blame · patch intelligence · HTML diff reports · GUI and CLI.
+
+*Licensed under the [WTFPL](#license) — do what the fuck you want to.*
 
 </div>
 
 ---
 
-## Install (GitHub Releases)
+## What is PatchDiff?
+
+PatchDiff is a Windows tool (GUI + CLI) that keeps an eye on compiled .NET assemblies —
+typically a Unity game's `Assembly-CSharp.dll` — and shows you **exactly what a patch
+changed** inside them, in plain decompiled C#.
+
+When a game updates, the old version is gone: the installer replaces the DLL and whatever
+code it contained is overwritten. PatchDiff snapshots every version you've seen, so after
+a patch you can ask "what actually changed?" and get a real answer: which types were added,
+removed or modified, which constants were buffed or nerfed, and a side-by-side diff of the
+decompiled source — without ever touching the game files themselves.
+
+## Features
+
+- **Watch mode** — point PatchDiff at one or more DLLs; it detects every update automatically
+  (`FileSystemWatcher` + polling fallback), re-decompiles, and diffs against the baseline.
+- **Compare mode** — one-shot diff of any two DLLs (`patchdiff compare old.dll new.dll`).
+- **Decompiled diffs** — full C# decompilation via `ICSharpCode.Decompiler` (the ILSpy engine),
+  type-by-type with line-level side-by-side highlighting (DiffPlex).
+- **Patch intelligence** — each diff gets a plain-terms summary, a *namespace heat* breakdown
+  (where the patch concentrated its changes), and detection of numeric tuning with
+  **buff / nerf** classification (e.g. `Demo.Player.Health: 100 → 150 (+50%) [buff]`).
+- **Revision archive** — every version of every watched DLL is kept: a manifest per revision
+  (SHA-256, assembly version, timestamp, type count) plus the original DLL bytes in a local
+  archive, so you can study or restore any old build.
+- **History window & blame** — compare any two archived revisions on demand
+  (*diff vs previous* / *diff vs current*), restore an old build with one click, and walk the
+  full revision history member-by-member to see exactly when each member changed and in which
+  version.
+- **HTML reports** — self-contained, start-collapsed diff reports for every detected patch,
+  written next to the snapshots.
+- **Assembly explorer** — browse namespaces, types and members of any watched DLL and read the
+  decompiled source inline.
+- **Type search** — search across every decompiled type in all watched baselines at once.
+- **Persistence & auto-start** — watch list, timeline, baselines and window state survive
+  restarts; re-checks on launch; optional *Start with Windows* so a rebooted PC keeps watching.
+- **System tray** — close-to-tray, tray menu and balloon alerts on detected patches.
+
+## Install on Windows
+
+### Option A — download a release (easiest)
 
 Grab a build from the [Releases](../../releases) page — every `v*` tag ships prebuilt binaries:
 
@@ -23,9 +66,51 @@ Grab a build from the [Releases](../../releases) page — every `v*` tag ships p
 | `patchdiff-osx-arm64.tar.gz` | CLI for Apple Silicon |
 | `PatchDiff-app-win-x64.zip` | WPF desktop app (Windows) |
 
-Extract, put `patchdiff(.exe)` somewhere on your `PATH`, done.
+1. Download and extract the zip.
+2. For the CLI: put `patchdiff.exe` somewhere on your `PATH` (or just run it from its folder).
+3. For the GUI: run `PatchDiff.exe` — no installer needed, everything lives in
+   `%LOCALAPPDATA%\PatchDiff`.
 
-## CLI
+### Option B — build from source
+
+Requires [git](https://git-scm.com) and the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+
+```bat
+git clone https://github.com/Tester12-SR-24/PatchDiff.git
+cd PatchDiff
+dotnet build
+```
+
+That builds the whole solution — Core library, CLI and WPF app:
+
+```bat
+:: run the CLI
+dotnet run --project src\PatchDiff.Cli -- compare a.dll b.dll
+
+:: run the GUI
+start src\PatchDiff.App\bin\Debug\net8.0-windows\PatchDiff.exe
+```
+
+#### Self-contained single-file builds (what the releases contain)
+
+```bat
+:: CLI — runs on any x64 Windows machine, no .NET install required
+dotnet publish src\PatchDiff.Cli -c Release -r win-x64 --self-contained true ^
+  /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true ^
+  -o publish\cli
+
+:: GUI app
+dotnet publish src\PatchDiff.App -c Release -r win-x64 --self-contained true ^
+  /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true ^
+  -o publish\app
+```
+
+To create portable bundles like the release assets, zip `publish\cli` as
+`patchdiff-win-x64.zip` and `publish\app` as `PatchDiff-app-win-x64.zip`.
+
+## Usage
+
+### CLI
 
 ```bash
 # one-shot: compare two versions of a DLL
@@ -34,19 +119,26 @@ patchdiff compare old/Assembly-CSharp.dll new/Assembly-CSharp.dll -o diff.html
 # monitor a Unity game — writes baseline, then auto-diffs on every patch
 patchdiff watch "C:\Games\MyGame_Data\Managed\Assembly-CSharp.dll"
 
-# watch several DLLs, with a custom poll interval
+# watch several DLLs with a custom poll interval
 patchdiff watch --poll 5 Assembly-CSharp.dll MyGame.Network.dll
+
+# list every archived revision of a watched DLL (SHA, version, timestamp, types)
+patchdiff history "C:\Games\MyGame_Data\Managed\Assembly-CSharp.dll"
+
+patchdiff version
 ```
 
 `watch` runs until Ctrl+C. On each detected update it prints `+added / −removed / ~modified`
-type counts to the console and writes a self-contained HTML report.
+type counts, the plain-terms patch summary and buff/nerf number changes to the console,
+and writes a self-contained HTML report.
 
-## GUI
+### GUI
 
 The desktop app shows the same data as a **patch feed**: a card per watched DLL
 (`UP TO DATE` / `ANALYZING…` / `NEW BASELINE` / `UPDATED`), a timeline of detected
-updates, an activity log, and a side-by-side colored diff viewer
-(*Open diff*) with one-click HTML reports.
+updates, an activity log, and a side-by-side colored diff viewer (*Open diff*) with the
+patch-intel panel, one-click HTML reports, per-card **History** (revision compare + restore),
+**Browse** (assembly explorer) and **Sources** (export the decompiled snapshot to `.cs` files).
 
 ### Persistence & auto-refresh (ILSpy-style)
 
@@ -57,36 +149,23 @@ updates, an activity log, and a side-by-side colored diff viewer
 - **File ▸ Start with Windows** arms PatchDiff at logon, so a rebooted PC is watching again
   before you even open the app.
 
-### ILSpy-inspired extras
-
-- **🔍 Search types** (toolbar) — search over every decompiled type in all watched baselines
-  at once, with an IDE-style results popup; Enter opens the decompiled source.
-- **⤓ Sources** (per card) — export the whole decompiled snapshot to a folder of `.cs` files
-  (the light version of ILSpy's *Save Project*), e.g. to feed into git or another diff tool.
-- **🔄 All (F5)** — reload/re-check every watched DLL on demand.
-- **Help ▸ Check for updates** — queries this repo's latest release and offers the download
-  when it's newer than your build.
-
 ## How it works
 
 1. **Baseline** — the first scan decompiles every top-level type of the DLL to C#
-   (via `ICSharpCode.Decompiler`, the same engine as ILSpy) and stores the snapshot
-   in `%LOCALAPPDATA%\PatchDiff\Snapshots`.
-2. **Detection** — `FileSystemWatcher` (rename/change, debounced) plus a polling
-   fallback hash the DLL; read-retries tolerate files still being copied, which is
-   exactly how Unity replaces `Assembly-CSharp.dll` on a patch.
-3. **Diff** — changed hash ⇒ re-decompile ⇒ type-by-type **added / removed / modified**
-   diff against the baseline (DiffPlex line-level side-by-side).
-4. **Report** — HTML report written to `%LOCALAPPDATA%\PatchDiff\Reports`, baseline updated, event emitted.
-
-## Build from source
-
-```bash
-dotnet build                      # PatchDiff.sln: Core + CLI + WPF app
-dotnet run --project src/PatchDiff.Cli -- compare a.dll b.dll
-```
-
-Requires the .NET 8 SDK.
+   (via `ICSharpCode.Decompiler`) and stores the snapshot in
+   `%LOCALAPPDATA%\PatchDiff\Snapshots`. The revision archive
+   (`%LOCALAPPDATA%\PatchDiff\Revisions` + `Archive`) keeps the manifest and the DLL bytes
+   for every version seen from then on.
+2. **Detection** — `FileSystemWatcher` (rename/change, debounced) plus a polling fallback
+   (default every 10 s) hash the DLL; read-retries tolerate files still being copied, which
+   is exactly how Unity replaces `Assembly-CSharp.dll` on a patch.
+3. **Diff** — changed hash ⇒ re-decompile ⇒ type-by-type **added / removed / modified** diff
+   against the baseline (DiffPlex line-level side-by-side).
+4. **Intelligence** — the diff is summarized in plain terms: which namespaces took the heat,
+   which numeric constants moved and whether that reads as a buff or a nerf, plus a
+   member-level blame pass over the whole revision history.
+5. **Report & archive** — an HTML report is written to `%LOCALAPPDATA%\PatchDiff\Reports`,
+   the revision is archived, the baseline is updated, and the GUI timeline/log are notified.
 
 ## Notes
 
@@ -95,3 +174,21 @@ Requires the .NET 8 SDK.
 - References resolve from the DLL's own folder first (Unity's Managed folder ships its
   own BCL), falling back to the .NET Framework 4.x directories.
 - Only top-level types are tracked individually; nested types ride along in their parent.
+- The GUI is Windows-only (WPF); the CLI also runs on Linux and macOS.
+
+## Building blocks
+
+- [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) — C# decompilation engine
+- [DiffPlex](https://github.com/mmanela/diffplex) — line-level diffing
+- WPF (.NET 8) for the desktop app, `System.CommandLine`-free hand-rolled CLI parser
+
+## License
+
+PatchDiff is released under the **WTFPL Version 2** — see [LICENSE](LICENSE).
+
+> *DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE*
+> Everyone is permitted to copy and distribute verbatim or modified copies of this
+> license document, and changing it is allowed as long as the name is changed.
+>
+> TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION:
+> **0. You just DO WHAT THE FUCK YOU WANT TO.**
