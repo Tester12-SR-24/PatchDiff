@@ -191,7 +191,8 @@
                                             <ControlTemplate TargetType="ListBoxItem">
                                                 <Border x:Name="Bd" Background="Transparent"
                                                         BorderBrush="Transparent" BorderThickness="1.5"
-                                                        CornerRadius="10" Padding="1.5">
+                                                        CornerRadius="11" Padding="2" Margin="0,0,12,12"
+                                                        SnapsToDevicePixels="True">
                                                     <ContentPresenter/>
                                                 </Border>
                                                 <ControlTemplate.Triggers>
@@ -216,7 +217,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Width="330" Height="148" Background="#26262b" BorderBrush="#38383f"
-                                        BorderThickness="1" CornerRadius="9" Padding="13,11" Margin="0,0,12,12">
+                                        BorderThickness="1" CornerRadius="9" Padding="13,11">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"

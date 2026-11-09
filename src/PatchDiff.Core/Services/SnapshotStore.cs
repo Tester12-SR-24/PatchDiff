@@ -12,13 +12,15 @@ namespace PatchDiff.Services;
 /// </summary>
 public sealed class SnapshotStore
 {
-    static readonly string Root = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "PatchDiff", "Snapshots");
+    /// <summary>Data root; PATCHDIFF_DATA_DIR overrides it (used for portable/demo setups).</summary>
+    public static string DataRoot =>
+        Environment.GetEnvironmentVariable("PATCHDIFF_DATA_DIR") is { Length: > 0 } dir
+            ? dir
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PatchDiff");
 
-    public static readonly string ReportsRoot = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "PatchDiff", "Reports");
+    static readonly string Root = Path.Combine(DataRoot, "Snapshots");
+
+    public static readonly string ReportsRoot = Path.Combine(DataRoot, "Reports");
 
     static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
@@ -83,35 +85,70 @@ public sealed class SnapshotStore
         sb.Append("</title><style>");
         sb.Append("""
 body{font-family:'Cascadia Code',Consolas,monospace;margin:16px;background:#fafbfc;color:#24292f}
-h3{margin:18px 0 4px;font-family:Segoe UI,sans-serif}
-table{border-collapse:collapse;width:100%;font-size:12px}
+h2{font-family:Segoe UI,sans-serif}
+.summary{font-family:Segoe UI,sans-serif;color:#57606a}
+.toolbar{font-family:Segoe UI,sans-serif;margin:0 0 10px}
+.toolbar button{font:inherit;padding:4px 10px;margin-right:6px;cursor:pointer}
+details.type{border:1px solid #e1e4e8;border-radius:6px;margin:10px 0;background:#fff}
+details.type>summary{cursor:pointer;list-style:none;padding:8px 12px;font-weight:600;
+  font-family:Segoe UI,sans-serif;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+details.type>summary::-webkit-details-marker{display:none}
+details.type>summary:hover{background:#f6f8fa}
+.arrow{display:inline-block;transition:transform .15s;font-size:11px;color:#57606a}
+details[open]>summary .arrow{transform:rotate(90deg)}
+.badge{font-size:11px;font-weight:500;padding:1px 8px;border-radius:9px;font-family:Segoe UI,sans-serif}
+.b-add{background:#d4f8d4;color:#116329}.b-rem{background:#ffdce0;color:#cf222e}
+.b-mod{background:#fff3cd;color:#7d5b00}.b-same{background:#eaeef2;color:#57606a}
+table{border-collapse:collapse;width:100%;font-size:12px;margin-top:2px}
 td{vertical-align:top;padding:1px 6px;white-space:pre-wrap;width:50%;border:1px solid #e1e4e8}
-del{background:#ffdce0}ins{background:#d4f8d4}mod-o{background:#fff3cd}chips{}
 td.o{background:#ffeef0;border-left:4px solid #f66a0a}
 td.n{background:#e6ffed;border-left:4px solid #28a745}
 td.same{background:#fff}
-.summary{font-family:Segoe UI,sans-serif;color:#57606a}
 """);
         sb.Append("</style></head><body>");
         sb.Append($"<h2>{Escape(diff.Title)}</h2>");
         sb.Append($"<p class=\"summary\">+{diff.Added} added &nbsp; −{diff.Removed} removed &nbsp; ~{diff.Modified} modified</p>");
+        sb.Append("<p class=\"toolbar\"><button onclick=\"document.querySelectorAll('details.type').forEach(d=>d.open=true)\">Expand all</button>"
+                  + "<button onclick=\"document.querySelectorAll('details.type').forEach(d=>d.open=false)\">Collapse all</button></p>");
 
         foreach (var td in diff.TypeDiffs.Where(d => d.Change != ChangeKind.None))
         {
-            sb.Append($"<h3>{td.DisplayChange} — {Escape(td.FullName)}</h3>");
-            sb.Append("<table><tr>");
-            var rows = DiffService.SideBySide(td);
-            foreach (var r in rows)
+            var (addLines, remLines, modLines) = LineCounts(td);
+            var openAttr = td.Change == ChangeKind.Modified ? " open" : "";
+            sb.Append($"<details class=\"type\"{openAttr}>");
+            sb.Append($"<summary><span class=\"arrow\">▶</span>{Escape(td.FullName)}");
+            if (addLines > 0) sb.Append($"<span class=\"badge b-add\">+{addLines}</span>");
+            if (remLines > 0) sb.Append($"<span class=\"badge b-rem\">−{remLines}</span>");
+            if (modLines > 0) sb.Append($"<span class=\"badge b-mod\">~{modLines}</span>");
+            if (addLines + remLines + modLines == 0)
+                sb.Append("<span class=\"badge b-same\">whitespace only</span>");
+            sb.Append($"<span class=\"badge b-same\">{td.DisplayChange}</span>");
+            sb.Append("</summary><table>");
+            foreach (var r in DiffService.SideBySide(td))
             {
                 sb.Append("<tr>");
                 sb.Append($"<td class=\"{CellClass(r.Old, true)}\">{Escape(r.Old?.Text)}</td>");
                 sb.Append($"<td class=\"{CellClass(r.New, false)}\">{Escape(r.New?.Text)}</td>");
                 sb.Append("</tr>");
             }
-            sb.Append("</tr></table>");
+            sb.Append("</table></details>");
         }
         sb.Append("</body></html>");
         File.WriteAllText(path, sb.ToString());
+
+        static (int added, int removed, int modified) LineCounts(Models.TypeDiff td)
+        {
+            int added = 0, removed = 0, modified = 0;
+            foreach (var r in DiffService.SideBySide(td))
+            {
+                var ot = r.Old?.Type.ToString();
+                var nt = r.New?.Type.ToString();
+                if (ot == "Deleted") removed++;
+                if (nt == "Inserted") added++;
+                if (ot == "Modified" || nt == "Modified") modified++;
+            }
+            return (added, removed, Math.Max(0, modified - added));
+        }
 
         static string CellClass(DiffPlex.DiffBuilder.Model.DiffPiece? piece, bool isOld) =>
             piece?.Type switch

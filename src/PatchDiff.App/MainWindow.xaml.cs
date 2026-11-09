@@ -13,13 +13,9 @@ namespace PatchDiff;
 
 public partial class MainWindow : Window
 {
-    static readonly string SettingsFile = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "PatchDiff", "settings.json");
+    static readonly string SettingsFile = Path.Combine(SnapshotStore.DataRoot, "settings.json");
 
-    static readonly string UiStateFile = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "PatchDiff", "ui-state.json");
+    static readonly string UiStateFile = Path.Combine(SnapshotStore.DataRoot, "ui-state.json");
 
     const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string RunValueName = "PatchDiff";
