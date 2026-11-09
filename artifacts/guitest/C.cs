@@ -5,7 +5,6 @@ namespace Game.Combat {
     public void Jump() {}
     public void DoubleJump() {}
   }
-  public class Enemy { public string Name { get; set; } public int Damage { get; set; }
-    public void Attack() {} }
+  public class Enemy { public string Name { get; set; } }
 }
 namespace Game.Combat { public class BossRush { public int Waves = 12; public string RewardTier { get; set; } } }

@@ -1,4 +1,13 @@
 using System.Windows;
+using Application = System.Windows.Application;
+using Brush = System.Windows.Media.Brush;
+using Clipboard = System.Windows.Clipboard;
+using DataFormats = System.Windows.DataFormats;
+using DragEventArgs = System.Windows.DragEventArgs;
+using MessageBox = System.Windows.MessageBox;
+using MessageBoxImage = System.Windows.MessageBoxImage;
+using MessageBoxButton = System.Windows.MessageBoxButton;
+using MessageBoxResult = System.Windows.MessageBoxResult;
 
 namespace PatchDiff;
 

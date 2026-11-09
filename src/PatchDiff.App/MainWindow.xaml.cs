@@ -8,6 +8,18 @@ using System.Windows.Controls;
 using Microsoft.Win32;
 using PatchDiff.Models;
 using PatchDiff.Services;
+using Application = System.Windows.Application;
+using Brush = System.Windows.Media.Brush;
+using Clipboard = System.Windows.Clipboard;
+using DataFormats = System.Windows.DataFormats;
+using DragEventArgs = System.Windows.DragEventArgs;
+using MessageBox = System.Windows.MessageBox;
+using MessageBoxImage = System.Windows.MessageBoxImage;
+using MessageBoxButton = System.Windows.MessageBoxButton;
+using MessageBoxResult = System.Windows.MessageBoxResult;
+using DragDropEffects = System.Windows.DragDropEffects;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using Process = System.Diagnostics.Process;
 
 namespace PatchDiff;
 
@@ -19,6 +31,11 @@ public partial class MainWindow : Window
 
     const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string RunValueName = "PatchDiff";
+
+    System.Windows.Forms.NotifyIcon? _trayIcon;
+    System.Windows.Forms.ToolStripMenuItem? _trayAutoStartItem;
+    bool _reallyExiting;
+    bool _trayHintShown;
 
     readonly WatchManager _mgr = WatchManager.Instance;
     readonly ObservableCollection<string> _logLines = new();
@@ -37,12 +54,104 @@ public partial class MainWindow : Window
         // Save state when Windows shuts down / the user logs off too.
         SystemEvents.SessionEnding += (_, _) => SaveAll();
         AutoStartItem.IsChecked = IsAutoStartEnabled();
+        InitTray();
+        Loaded += (_, _) => ((App)Application.Current).MainWindow = this;
+    }
+
+    // ---------- system tray ----------
+
+    void InitTray()
+    {
+        try
+        {
+            var iconStream = Application.GetResourceStream(
+                new Uri("pack://application:,,,/icon.ico")).Stream;
+            var icon = new System.Drawing.Icon(iconStream);
+
+            _trayAutoStartItem = new System.Windows.Forms.ToolStripMenuItem("Start with Windows")
+            {
+                CheckOnClick = true,
+                Checked = AutoStartItem.IsChecked,
+            };
+            _trayAutoStartItem.CheckedChanged += (_, _) =>
+            {
+                if (AutoStartItem.IsChecked != _trayAutoStartItem.Checked)
+                {
+                    AutoStartItem.IsChecked = _trayAutoStartItem.Checked;
+                    OnToggleAutoStart(null, null!);
+                }
+            };
+
+            var menu = new System.Windows.Forms.ContextMenuStrip();
+            menu.Items.Add("Open PatchDiff", null, (_, _) => ShowFromTray());
+            menu.Items.Add("Check all now", null, (_, _) => Dispatcher.BeginInvoke(() => OnReloadAll(null, null!)));
+            menu.Items.Add(_trayAutoStartItem);
+            menu.Items.Add("Reports folder", null, (_, _) => Dispatcher.BeginInvoke(() => OnOpenReports(null, null!)));
+            menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+            menu.Items.Add("Exit", null, (_, _) => Dispatcher.BeginInvoke(ExitApp));
+
+            _trayIcon = new System.Windows.Forms.NotifyIcon
+            {
+                Icon = icon,
+                Text = "PatchDiff - watching your DLLs",
+                Visible = true,
+                ContextMenuStrip = menu,
+            };
+            _trayIcon.DoubleClick += (_, _) => ShowFromTray();
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Tray icon unavailable: {ex.Message}");
+        }
+    }
+
+    public void ShowFromTray()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+        Focus();
+    }
+
+    void ExitApp()
+    {
+        _reallyExiting = true;
+        Close();
+        Application.Current.Shutdown();
     }
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
+        if (!_reallyExiting)
+        {
+            // X / minimize => keep watching from the tray (ILSpy-style).
+            e.Cancel = true;
+            Hide();
+            if (!_trayHintShown)
+            {
+                _trayHintShown = true;
+                _trayIcon?.ShowBalloonTip(3500, "PatchDiff is still running",
+                    "PatchDiff keeps watching your DLLs from the tray. Double-click the icon to reopen.",
+                    System.Windows.Forms.ToolTipIcon.Info);
+            }
+            return;
+        }
+
         SaveAll();
+        if (_trayIcon is not null)
+        {
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
+            _trayIcon = null;
+        }
         base.OnClosing(e);
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+        if (WindowState == WindowState.Minimized && !_reallyExiting)
+            Hide();
     }
 
     void SaveAll()
@@ -230,6 +339,24 @@ public partial class MainWindow : Window
         AddLog($"Reloading all {_mgr.Watched.Count} watched DLLs...");
     }
 
+    static string CurrentVersion()
+    {
+        try
+        {
+            var fv = System.Diagnostics.FileVersionInfo.GetVersionInfo(Environment.ProcessPath!);
+            var v = fv.ProductVersion;
+            if (string.IsNullOrEmpty(v))
+                v = fv.FileVersion;
+            if (string.IsNullOrEmpty(v))
+                v = typeof(MainWindow).Assembly.GetName().Version?.ToString(3);
+            return v ?? "?";
+        }
+        catch
+        {
+            return typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "?";
+        }
+    }
+
     async void OnCheckForUpdates(object sender, RoutedEventArgs e)
     {
         AddLog("Checking for updates...");
@@ -241,7 +368,7 @@ public partial class MainWindow : Window
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
             var url = doc.RootElement.GetProperty("html_url").GetString() ?? "";
-            var local = GetType().Assembly.GetName().Version;
+            var local = Version.TryParse(CurrentVersion(), out var lv) ? lv : null;
             var remote = Version.TryParse(tag.TrimStart('v'), out var rv) ? rv : null;
 
             if (remote is not null && local is not null && remote > local)
@@ -269,7 +396,7 @@ public partial class MainWindow : Window
 
     void OnAbout(object sender, RoutedEventArgs e)
     {
-        var v = GetType().Assembly.GetName().Version?.ToString(3);
+        var v = CurrentVersion();
         MessageBox.Show(this,
             $"PatchDiff {v}\n\nWatch .NET/Unity DLLs; decompile with the ILSpy engine; diff, report, repeat.\n\nBuilt with DeepAI Code.",
             "About PatchDiff", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -340,6 +467,11 @@ public partial class MainWindow : Window
 
     void OnToggleAutoStart(object sender, RoutedEventArgs e)
     {
+        if (_trayAutoStartItem is not null && _trayAutoStartItem.Checked != AutoStartItem.IsChecked)
+        {
+            _trayAutoStartItem.Checked = AutoStartItem.IsChecked;
+            return; // tray handler re-invokes OnToggleAutoStart once
+        }
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true);
@@ -368,6 +500,9 @@ public partial class MainWindow : Window
             AddEvent("patched", "GAME PATCHED",
                 $"{w.Name} rewritten on disk → auto-diff completed ({diff.Added + diff.Removed + diff.Modified} type changes) → report saved");
             UpdateFooter();
+            _trayIcon?.ShowBalloonTip(4000, "DLL updated",
+                $"{w.Name}: +{diff.Added} added, minus {diff.Removed} removed, ~{diff.Modified} modified",
+                System.Windows.Forms.ToolTipIcon.Info);
         });
 
         _mgr.BaselineCreated += (w, _) => Dispatcher.BeginInvoke(() =>
@@ -568,7 +703,7 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(SnapshotStore.ReportsRoot) { UseShellExecute = true });
     }
 
-    void OnExit(object sender, RoutedEventArgs e) => Close();
+    void OnExit(object sender, RoutedEventArgs e) => ExitApp();
 
     // ---------- card button handlers ----------
 
