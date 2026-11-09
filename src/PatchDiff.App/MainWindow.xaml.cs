@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Win32;
 using PatchDiff.Models;
 using Application = System.Windows.Application;
@@ -75,9 +76,12 @@ public partial class MainWindow : Window
             UpdateIntelRail(diff.Intelligence);
             UpdateFooter();
             if (_settings.BalloonOnPatch)
-                _trayIcon?.ShowBalloonTip(4000, "DLL updated",
+            {
+                var title = w.IsDemo ? "Demo patched" : "DLL updated";
+                _trayIcon?.ShowBalloonTip(4000, title,
                     $"{w.Name}: +{diff.Added} added, −{diff.Removed} removed, ~{diff.Modified} modified",
                     System.Windows.Forms.ToolTipIcon.Info);
+            }
         });
 
         _mgr.BaselineCreated += (w, _) => Dispatcher.BeginInvoke(() =>
@@ -168,25 +172,117 @@ public partial class MainWindow : Window
 
     void OpenOverviewTab()
     {
-        var panel = new StackPanel { Margin = new Thickness(24) };
+        // replace the existing Overview tab if present (keeps tab position)
+        var existing = WorkTabs.Items.OfType<TabModel>().FirstOrDefault(t => t.Header == "Overview");
+        var panel = BuildOverviewPanel();
+        if (existing is not null)
+        {
+            existing.Content = panel;
+            WorkTabs.SelectedItem = existing;
+        }
+        else
+        {
+            var model = new TabModel(this) { Header = "Overview", Content = panel };
+            WorkTabs.Items.Insert(0, model);
+            WorkTabs.SelectedItem = model;
+        }
+    }
+
+    UIElement BuildOverviewPanel()
+    {
+        var demo = _mgr.Watched.FirstOrDefault(x => x.IsDemo);
+        var panel = new StackPanel { Margin = new Thickness(28, 22, 28, 12) };
+
         panel.Children.Add(new TextBlock
         {
-            Text = _mgr.Watched.Count == 0
-                ? "🛡️ Nothing watched yet"
-                : "🛡️ PatchDiff is watching",
+            Text = demo is not null ? "Demo session running" : "Welcome to PatchDiff",
             FontSize = 18,
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 0, 0, 8),
         });
         panel.Children.Add(new TextBlock
         {
-            Text = _mgr.Watched.Count == 0
-                ? "Point PatchDiff at a game's Assembly-CSharp.dll and it will snapshot it, then report every patch automatically.\nUse ➕ Add DLL or 📂 Folder… in the left rail. Drag & drop works too."
-                : "Select an assembly in the left rail, then use Browse / History / Diff buttons.\nPatches appear here as tabs and in the timeline; tray stays active when the window is closed.",
+            Text = "PatchDiff snapshots a game's decompiled code and shows you exactly what a patch changed — types added, removed or modified, constants buffed or nerfed.",
             TextWrapping = TextWrapping.Wrap,
-            Foreground = System.Windows.Media.Brushes.Gray,
+            Foreground = System.Windows.Media.Brushes.LightGray,
+            MaxWidth = 560,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 0, 0, 16),
         });
-        AddTab("Overview", panel, closable: false);
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+        var watchReal = new Button
+        {
+            Content = "f4c2 Watch a real DLL…",
+            Padding = new Thickness(10, 5, 10, 5),
+            Style = (Style)FindResource("AccentButton"),
+        };
+        watchReal.Click += (_, _) => OnAddDll(this, new RoutedEventArgs());
+        buttons.Children.Add(watchReal);
+        var watchFolder = new Button
+        {
+            Content = "f4c2 Watch a whole folder…",
+            Padding = new Thickness(10, 5, 10, 5),
+        };
+        watchFolder.Click += (_, _) => OnAddFolder(this, new RoutedEventArgs());
+        buttons.Children.Add(watchFolder);
+        var compareBtn = new Button
+        {
+            Content = "⚖ Compare two DLLs…",
+            Padding = new Thickness(10, 5, 10, 5),
+        };
+        compareBtn.Click += (_, _) => OnCompareTwo(this, new RoutedEventArgs());
+        buttons.Children.Add(compareBtn);
+        panel.Children.Add(buttons);
+
+        var demoStrip = new System.Windows.Controls.Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x23, 0x23, 0x27)),
+            BorderBrush = new SolidColorBrush(demo is not null
+                ? Color.FromRgb(0x6a, 0x71, 0x85)
+                : Color.FromRgb(0x38, 0x38, 0x3f)),
+            BorderThickness = new Thickness(1),
+            Opacity = demo is not null ? 0.9 : 1,
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(10, 8, 10, 8),
+            Margin = new Thickness(0, 14, 0, 10),
+        };
+        var demoRow = new StackPanel { Orientation = Orientation.Horizontal };
+        demoRow.Children.Add(new TextBlock
+        {
+            Text = demo is not null
+                ? "Demo session active — sample data, nothing persisted."
+                : "Want to look around first? Load the bundled demo assembly — nothing is saved, and clearing it takes one click.",
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = System.Windows.Media.Brushes.LightGray,
+        });
+        var spacer = new System.Windows.Controls.Border { Width = 12 };
+        demoRow.Children.Add(spacer);
+        var demoBtn = new Button
+        {
+            Content = demo is not null ? "Clear demo" : "▶ Try the demo",
+            Padding = new Thickness(9, 3, 9, 3),
+            FontSize = 11,
+        };
+        demoBtn.Click += (_, _) => { if (demo is not null) ClearDemoSession(); else StartDemoSession(); };
+        demoRow.Children.Add(demoBtn);
+        demoStrip.Child = demoRow;
+        panel.Children.Add(demoStrip);
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = @"Unity tip:  <game>_Data\Managed\Assembly-CSharp.dll",
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 11.5,
+            Foreground = System.Windows.Media.Brushes.Gray,
+            Margin = new Thickness(0, 6, 0, 0),
+        });
+        return panel;
+    }
+
+    void OpenDiffTab(WatchedDll w, AssemblyDiffResult diff)
+    {
+        AddTab($"Diff — {w.Name}", new DiffView(diff));
     }
 
     void OpenBrowseTab(WatchedDll w)
@@ -197,17 +293,49 @@ public partial class MainWindow : Window
             AddLog($"No snapshot yet for {w.Name} — wait for the first analysis to finish.");
             return;
         }
-        var view = new BrowseView(snap, w);
-        view.DiffRequested += diff => Dispatcher.BeginInvoke(() =>
-        {
-            AddTab($"Diff — {w.Name}", new DiffView(diff));
-        });
-        AddTab($"Browse — {w.Name}", view);
+        AddTab($"Browse — {w.Name}", new BrowseView(snap, w));
     }
 
-    void OpenDiffTab(WatchedDll w, AssemblyDiffResult diff)
+    // ---------------- demo session (never persisted) ----------------
+
+    public void StartDemoSession()
     {
-        AddTab($"Diff — {w.Name}", new DiffView(diff));
+        try
+        {
+            var res = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/demo.dll"));
+            if (res is null)
+            {
+                AddLog("Demo library missing from the installation.");
+                return;
+            }
+            var demoPath = Path.Combine(SnapshotStore.DataRoot, "demo", "demo.dll");
+            Directory.CreateDirectory(Path.GetDirectoryName(demoPath)!);
+            using (var input = res.Stream)
+            using (var output = File.Create(demoPath))
+                input.CopyTo(output);
+
+            _settings.DemoCleared = false;
+            _mgr.Add(demoPath, isDemo: true);
+            AddLog("Demo session started — a sample assembly is loaded in-memory. Nothing is persisted; use Clear demo to remove it.");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Could not start demo session: {ex.Message}");
+        }
+    }
+
+    void ClearDemoSession()
+    {
+        var demo = _mgr.Watched.FirstOrDefault(x => x.IsDemo);
+        if (demo is null)
+        {
+            AddLog("No demo session running.");
+            return;
+        }
+        _mgr.Remove(demo); // nothing on disk to purge for a demo session
+        _settings.DemoCleared = true;
+        SaveAll();
+        AddLog("Demo session cleared.");
     }
 
     void OpenHistoryTab(WatchedDll w)
@@ -215,7 +343,29 @@ public partial class MainWindow : Window
         var view = new HistoryView(w);
         view.DiffRequested += diff => Dispatcher.BeginInvoke(() =>
             AddTab($"Diff — {w.Name} (history)", new DiffView(diff)));
+        view.MatrixRequested += watch => Dispatcher.BeginInvoke(() => OpenMatrixTab(watch));
         AddTab($"History — {w.Name}", view);
+    }
+
+    void OpenMatrixTab(WatchedDll w)
+    {
+        var store = new RevisionStore();
+        var revs = new List<AssemblySnapshot>();
+        foreach (var r in store.List(w.Path))
+        {
+            var snap = store.LoadRevision(w.Path, r.Sha256);
+            if (snap is not null)
+                revs.Add(snap);
+        }
+        if (revs.Count < 2)
+        {
+            AddLog($"Revision matrix needs at least two archived revisions — {w.Name} has {revs.Count}.");
+            return;
+        }
+        var view = new MatrixView(w, revs);
+        view.DiffRequested += (diff, label) => Dispatcher.BeginInvoke(() =>
+            AddTab($"Diff — {w.Name} ({label})", new DiffView(diff)));
+        AddTab($"Matrix — {w.Name}", view);
     }
 
     void OpenNotesTab(WatchedDll? w)
@@ -441,6 +591,7 @@ public partial class MainWindow : Window
     void ApplySettings()
     {
         _mgr.PollInterval = TimeSpan.FromSeconds(Math.Max(2, _settings.PollSeconds));
+        _mgr.ArchiveKeep = _settings.ArchiveKeep;
     }
 
     void OnCheckForUpdates(object sender, RoutedEventArgs e)

@@ -37,7 +37,8 @@
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                             <Button Content="Diff vs previous" Click="OnDiffPrev" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
                             <Button Content="Diff vs current" Click="OnDiffCurrent" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
-                            <Button Content="Restore…" Click="OnRestore" Padding="8,3" FontSize="11"/>
+                            <Button Content="Restore…" Click="OnRestore" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
+                            <Button Content="▦ Matrix" Click="OnMatrix" Padding="8,3" FontSize="11"/>
                         </StackPanel>
                     </Grid>
                 </DataTemplate>

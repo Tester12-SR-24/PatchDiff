@@ -30,6 +30,7 @@ public partial class HistoryView : UserControl
     Window OwnerWindow => Window.GetWindow(this)!;
 
     public event Action<AssemblyDiffResult>? DiffRequested;
+    public event Action<WatchedDll>? MatrixRequested;
 
     public HistoryView(WatchedDll watch)
     {
@@ -100,6 +101,12 @@ public partial class HistoryView : UserControl
         {
             MessageBox.Show(OwnerWindow, $"Compare failed: {ex.Message}", "PatchDiff");
         }
+    }
+
+    void OnMatrix(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is RevRow)
+            MatrixRequested?.Invoke(_watch);
     }
 
     void OnRestore(object sender, RoutedEventArgs e)
