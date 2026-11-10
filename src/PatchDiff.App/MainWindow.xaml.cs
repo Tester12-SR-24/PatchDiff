@@ -280,9 +280,9 @@ public partial class MainWindow : Window
         var demoStrip = new System.Windows.Controls.Border
         {
             Background = new SolidColorBrush(Color.FromRgb(0x23, 0x23, 0x27)),
-            BorderBrush = new SolidColorBrush(demo is not null
-                ? Color.FromRgb(0x6a, 0x71, 0x85)
-                : Color.FromRgb(0x38, 0x38, 0x3f)),
+            BorderBrush = demo is not null
+                ? (Brush?)TryFindResource("AccentBrush") ?? new SolidColorBrush(Color.FromRgb(0x6a, 0x71, 0x85))
+                : new SolidColorBrush(Color.FromRgb(0x38, 0x38, 0x3f)),
             BorderThickness = new Thickness(1),
             Opacity = demo is not null ? 0.9 : 1,
             CornerRadius = new CornerRadius(8),

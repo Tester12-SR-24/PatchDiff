@@ -145,6 +145,9 @@ public partial class MatrixView : UserControl
         MatrixGrid.Children.Add(stack);
     }
 
+    static Brush Theme(string key, Brush fallback) =>
+        Application.Current?.TryFindResource(key) as Brush ?? fallback;
+
     static System.Windows.Controls.Button MakeCell()
     {
         return new System.Windows.Controls.Button
@@ -152,9 +155,9 @@ public partial class MatrixView : UserControl
             FontFamily = new FontFamily("Consolas"),
             FontSize = 11,
             Padding = new Thickness(6, 5, 6, 5),
-            Background = new SolidColorBrush(Color.FromRgb(0x26, 0x26, 0x2b)),
-            Foreground = new SolidColorBrush(Color.FromRgb(0xc9, 0xd1, 0xe0)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0x2b, 0x2b, 0x31)),
+            Background = Theme("SurfaceBrush", new SolidColorBrush(Color.FromRgb(0x26, 0x26, 0x2b))),
+            Foreground = Theme("TextBrush", new SolidColorBrush(Color.FromRgb(0xc9, 0xd1, 0xe0))),
+            BorderBrush = Theme("HlBorderBrush", new SolidColorBrush(Color.FromRgb(0x2b, 0x2b, 0x31))),
             BorderThickness = new Thickness(1),
             Margin = new Thickness(2),
             Cursor = System.Windows.Input.Cursors.Hand,
@@ -222,7 +225,14 @@ public partial class MatrixView : UserControl
         }
         catch (Exception ex)
         {
+            var errBrush = new SolidColorBrush(Color.FromRgb(0x5a, 0x24, 0x28));
             clicked.Content = "error";
+            clicked.Background = errBrush;
+            if (mirror is not null)
+            {
+                mirror.Content = "error";
+                mirror.Background = errBrush;
+            }
             MessageBox.Show(OwnerWindow, $"Compare failed: {ex.Message}", "PatchDiff");
         }
         finally

@@ -61,7 +61,7 @@ public partial class BrowseView : UserControl
         var root = new ExplorerNode
         {
             Kind = "Assembly",
-            Glyph = "⚙",
+            Glyph = "",
             Header = $"{Path.GetFileName(snapshot.AssemblyPath)} — {snapshot.Types.Count} types",
             IsExpanded = true,
         };
@@ -125,10 +125,10 @@ public partial class BrowseView : UserControl
                         typeNode.Children.Add(group);
                     }
 
-                    AddGroup("─ Fields", fields);
-                    AddGroup("◐ Properties", props);
-                    AddGroup("▶ Methods", methods);
-                    AddGroup("⚡ Events", events);
+                    AddGroup("Fields", fields);
+                    AddGroup("Properties", props);
+                    AddGroup("Methods", methods);
+                    AddGroup("Events", events);
                 }
 
                 firstType ??= typeNode;

@@ -89,7 +89,7 @@
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBox x:Name="SearchBox" TextChanged="OnSearchChanged" VerticalContentAlignment="Center"
                             AutomationProperties.Name="Search .cs files"/>
-                        <TextBlock Text="🔍 Search .cs files…" Foreground="#6f6f79" FontSize="12" Margin="8,0,0,0"
+                        <TextBlock Text="Search .cs files…" Foreground="#6f6f79" FontSize="12" Margin="8,0,0,0"
                                    VerticalAlignment="Center" IsHitTestVisible="False">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
