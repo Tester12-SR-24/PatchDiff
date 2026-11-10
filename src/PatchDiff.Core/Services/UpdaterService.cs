@@ -136,10 +136,16 @@ public sealed class UpdaterService
             ZipFile.ExtractToDirectory(zipPath, staging, overwriteFiles: true);
             File.Delete(zipPath);
 
-            // sanity: the staged folder must contain the app entry point
-            if (!File.Exists(Path.Combine(staging, "PatchDiff.exe")))
+            // sanity: the staged folder must contain a REAL app entry point.
+            // File.Exists alone is not enough — a truncated/HTML/partial download
+            // produces a file that Windows then refuses to run ("Unsupported 16-Bit
+            // Application"), or worse, overwrites a working install with garbage.
+            var stagedExe = Path.Combine(staging, "PatchDiff.exe");
+            if (!IsValidPeImage(stagedExe))
             {
-                Directory.Delete(staging, recursive: true);
+                WriteUpdaterLog("stage validation",
+                    new InvalidDataException($"Staged PatchDiff.exe is missing or not a valid executable: {stagedExe}"));
+                try { Directory.Delete(staging, recursive: true); } catch { }
                 return null;
             }
             return staging;
@@ -166,6 +172,13 @@ public sealed class UpdaterService
             var stageTrimmed = stagingFolder.TrimEnd(Path.DirectorySeparatorChar);
             if (string.Equals(stageTrimmed, installTrimmed, StringComparison.OrdinalIgnoreCase))
                 return false; // running from the staging folder itself — nothing to swap
+
+            if (!IsValidPeImage(Path.Combine(stagingFolder, "PatchDiff.exe")))
+            {
+                WriteUpdaterLog("apply validation",
+                    new InvalidDataException("Refusing to apply: staged PatchDiff.exe is not a valid executable."));
+                return false;
+            }
 
             var pid = Environment.ProcessId;
             var appExe = Path.Combine(installDir, "PatchDiff.exe");
@@ -200,6 +213,43 @@ public sealed class UpdaterService
         catch (Exception ex)
         {
             WriteUpdaterLog("apply launch", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// True only when the file exists, is plausibly a full build, and carries a
+    /// Windows PE header. Guards the apply step from ever installing a corrupt file.
+    /// </summary>
+    public static bool IsValidPeImage(string? path)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+            var fi = new FileInfo(path);
+            if (!fi.Exists || fi.Length < 64 * 1024) // a real single-file build is tens of MB
+                return false;
+
+            using var fs = File.OpenRead(path);
+            Span<byte> buf = stackalloc byte[4];
+            if (fs.Read(buf[..2]) != 2 || buf[0] != (byte)'M' || buf[1] != (byte)'Z')
+                return false;
+
+            fs.Position = 0x3C; // e_lfanew
+            if (fs.Read(buf) != 4)
+                return false;
+            var peOffset = BitConverter.ToInt32(buf);
+            if (peOffset <= 0 || peOffset >= fi.Length - 4)
+                return false;
+
+            fs.Position = peOffset;
+            if (fs.Read(buf) != 4)
+                return false;
+            return buf[0] == (byte)'P' && buf[1] == (byte)'E' && buf[2] == 0 && buf[3] == 0;
+        }
+        catch
+        {
             return false;
         }
     }
