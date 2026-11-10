@@ -10,9 +10,9 @@
     <RootNamespace>PatchDiff</RootNamespace>
     <AssemblyName>PatchDiff</AssemblyName>
     <Product>PatchDiff</Product>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.1.1</Version>
+    <AssemblyVersion>1.1.1.0</AssemblyVersion>
+    <FileVersion>1.1.1.0</FileVersion>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
