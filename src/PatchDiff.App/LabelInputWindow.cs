@@ -13,7 +13,7 @@ public partial class LabelInputWindow : Window
         LabelText.Text = labelText;
         ValueBox.Text = initialValue ?? "";
         ValueBox.SelectAll();
-        Loaded += (_, _) => ValueBox.Focus();
+        Loaded += (_, _) => { ValueBox.Focus(); DarkTitleBar.Enable(this); };
     }
 
     void OnSave(object sender, RoutedEventArgs e)
