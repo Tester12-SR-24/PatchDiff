@@ -56,7 +56,11 @@ public partial class MainWindow : Window
         OpenOverviewTab();
         SystemEvents.SessionEnding += (_, _) => SaveAll();
         AutoStartItem.IsChecked = IsAutoStartEnabled();
-        Loaded += (_, _) => ((App)Application.Current).MainWindow = this;
+        Loaded += (_, _) =>
+        {
+            ((App)Application.Current).MainWindow = this;
+            DarkTitleBar.Enable(this);
+        };
         UpdateFooter();
     }
 
