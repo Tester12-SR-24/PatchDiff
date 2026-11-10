@@ -94,8 +94,31 @@ public partial class MainWindow : Window
         _mgr.Watched.CollectionChanged += (_, _) => UpdateFooter();
     }
 
-    void UpdateFooter() => FooterText.Text =
-        $"{_mgr.Watched.Count} watched · {Timeline.Count} timeline events · snapshots & reports: {SnapshotStore.DataRoot}";
+    void UpdateFooter()
+    {
+        // Show the data location with the user profile shortened, so screenshots
+        // and stream captures never leak the Windows account name.
+        FooterText.Text =
+            $"{_mgr.Watched.Count} watched · {Timeline.Count} timeline events · snapshots & reports: {DisplayPath(SnapshotStore.DataRoot)}";
+    }
+
+    internal static string DisplayPath(string path)
+    {
+        try
+        {
+            path = path.Replace("/", System.IO.Path.DirectorySeparatorChar.ToString());
+            var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrEmpty(profile) &&
+                path.StartsWith(profile, StringComparison.OrdinalIgnoreCase))
+                return "~" + path[profile.Length..].Replace('\\', '/');
+            var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (!string.IsNullOrEmpty(local) &&
+                path.StartsWith(local, StringComparison.OrdinalIgnoreCase))
+                return "%LOCALAPPDATA%" + path[local.Length..];
+        }
+        catch { /* display only — fall back to the raw path */ }
+        return path;
+    }
 
     void AddEvent(string kind, string badge, string message)
     {
