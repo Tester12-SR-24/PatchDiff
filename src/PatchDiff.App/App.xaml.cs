@@ -95,7 +95,7 @@ public partial class App : Application
 
             // class 1: two implicit styles for the same type in one file
             var implicitTargets = new List<string>();
-            foreach (Match m in Regex.Matches(text, @"<Style[^>]*TargetType=""(?<t>[^""]+)""[^>]*>"))
+            foreach (Match m in Regex.Matches(text, @"<Style\s[^>]*TargetType=""(?<t>[^""]+)""[^>]*>"))
             {
                 if (m.Value.Contains("x:Key="))
                     continue; // keyed styles may share a TargetType legally
