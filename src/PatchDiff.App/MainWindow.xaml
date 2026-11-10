@@ -443,9 +443,9 @@
                         <TabControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Header}" Margin="2,0,8,0"/>
-                                    <Button Content="" FontSize="9" Padding="3,0" Background="Transparent" ctl:IconGlyph.Geometry="{StaticResource IconClose}"
-                                            Foreground="#9a9aa9" BorderThickness="0" Cursor="Hand"
+                                    <TextBlock Text="{Binding Header}" Margin="2,0,8,0" VerticalAlignment="Center"/>
+                                    <Button Style="{StaticResource TabCloseButton}" ctl:IconGlyph.Geometry="{StaticResource IconClose}"
+                                            Margin="0,0,2,0"
                                             Command="{Binding CloseCommand}"
                                             Visibility="{Binding IsClosable, Converter={StaticResource BoolToVisibility}}"/>
                                 </StackPanel>

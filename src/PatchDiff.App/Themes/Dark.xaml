@@ -428,6 +428,35 @@
         </Setter>
     </Style>
 
+    <!-- ============ Tab close button (ghost: no box, no border, centered icon) ============ -->
+    <Style x:Key="TabCloseButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="#9a9aa9"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid Background="Transparent" Width="18" Height="18">
+                        <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                              Stroke="{TemplateBinding Foreground}" Fill="{x:Null}"
+                              StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round" Stretch="Uniform"
+                              Width="11" Height="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Margin="1"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ============ TabItem (dark, accent underline on selected) ============ -->
     <Style TargetType="TabItem">
         <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
