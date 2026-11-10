@@ -194,7 +194,11 @@ public partial class MainWindow : Window
     UIElement BuildOverviewPanel()
     {
         var demo = _mgr.Watched.FirstOrDefault(x => x.IsDemo);
-        var panel = new StackPanel { Margin = new Thickness(28, 22, 28, 12) };
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(28, 22, 28, 12),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
 
         panel.Children.Add(new TextBlock
         {
@@ -213,7 +217,7 @@ public partial class MainWindow : Window
             Margin = new Thickness(0, 0, 0, 16),
         });
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+        var buttons = new WrapPanel { Orientation = Orientation.Horizontal };
         var watchReal = new Button
         {
             Content = "f4c2 Watch a real DLL…",
@@ -250,25 +254,30 @@ public partial class MainWindow : Window
             Padding = new Thickness(10, 8, 10, 8),
             Margin = new Thickness(0, 14, 0, 10),
         };
-        var demoRow = new StackPanel { Orientation = Orientation.Horizontal };
-        demoRow.Children.Add(new TextBlock
-        {
-            Text = demo is not null
-                ? "Demo session active — sample data, nothing persisted."
-                : "Want to look around first? Load the bundled demo assembly — nothing is saved, and clearing it takes one click.",
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = System.Windows.Media.Brushes.LightGray,
-        });
-        var spacer = new System.Windows.Controls.Border { Width = 12 };
-        demoRow.Children.Add(spacer);
+        // Wrapping layout: the description text takes the free space and wraps,
+        // the button never overflows even in a narrow window.
+        var demoRow = new DockPanel { LastChildFill = true };
         var demoBtn = new Button
         {
             Content = demo is not null ? "Clear demo" : "▶ Try the demo",
             Padding = new Thickness(9, 3, 9, 3),
             FontSize = 11,
+            Margin = new Thickness(12, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
         };
         demoBtn.Click += (_, _) => { if (demo is not null) ClearDemoSession(); else StartDemoSession(); };
+        DockPanel.SetDock(demoBtn, Dock.Right);
         demoRow.Children.Add(demoBtn);
+        demoRow.Children.Add(new TextBlock
+        {
+            Text = demo is not null
+                ? "Demo session active — sample data, nothing persisted."
+                : "Want to look around first? Load the bundled demo assembly — nothing is saved, and clearing it takes one click.",
+            TextWrapping = TextWrapping.Wrap,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = System.Windows.Media.Brushes.LightGray,
+        });
+
         demoStrip.Child = demoRow;
         panel.Children.Add(demoStrip);
 
