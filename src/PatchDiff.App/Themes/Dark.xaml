@@ -107,8 +107,15 @@
                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
                             CornerRadius="7" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                  Stroke="{TemplateBinding Foreground}" Fill="None"
+                                  StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" Width="16" Height="16" Stretch="Uniform"
+                                  VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" Margin="0,0,-8,0"/>
+                        </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -140,8 +147,15 @@
                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
                             CornerRadius="7" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                  Stroke="{TemplateBinding Foreground}" Fill="None"
+                                  StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" Width="16" Height="16" Stretch="Uniform"
+                                  VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" Margin="0,0,-8,0"/>
+                        </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -426,7 +440,13 @@
                                 BorderThickness="1" CornerRadius="6" SnapsToDevicePixels="True" IsHitTestVisible="False">
                             <DockPanel Margin="{TemplateBinding Padding}">
                                 <TextBlock DockPanel.Dock="Right" Text="▼" FontSize="9" Foreground="{StaticResource TextDimBrush}"
-                                           VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0"/>
+                                           VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0"
+                                           Visibility="Collapsed"/>
+                                <Path Data="{StaticResource IconChevronDown}"
+                                      Stroke="{StaticResource TextDimBrush}" Fill="None" StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Width="10" Height="10" Stretch="Uniform"
+                                      DockPanel.Dock="Right" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0"/>
                                 <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
                                                   ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                                   ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
