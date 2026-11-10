@@ -91,7 +91,7 @@ public partial class MainWindow : Window
             AddEvent("baseline", "BASELINE",
                 $"{w.Name} added to watch — baseline captured ({w.Meta1})"));
 
-        _mgr.Watched.CollectionChanged += (_, _) => UpdateFooter();
+        _mgr.Watched.CollectionChanged += (_, _) => { UpdateFooter(); SaveAll(); };
     }
 
     void UpdateFooter()
@@ -885,8 +885,14 @@ public partial class MainWindow : Window
     {
         _settings = SettingsFile.Load();
         ApplySettings();
-        foreach (var p in _settings.Watched.Where(File.Exists))
+        // Keep entries whose file is temporarily missing (unmounted drive etc.) so the
+        // watch list is never silently truncated — the watch shows MISSING status.
+        foreach (var p in _settings.Watched)
+        {
+            if (!File.Exists(p))
+                AddLog($"Watch skipped (file not found): {p}");
             _mgr.Add(p);
+        }
         LoadUiState();
     }
 
@@ -1054,11 +1060,11 @@ public partial class MainWindow : Window
 
     void OnToggleAutoStart(object? sender, RoutedEventArgs? e)
     {
+        // Sync the tray checkbox, then ALWAYS fall through to the registry write.
+        // (An early return here made the File-menu path a no-op: the menu click sets
+        // IsChecked, the tray sync ran, and the registry write never happened.)
         if (_trayAutoStartItem is not null && _trayAutoStartItem.Checked != AutoStartItem.IsChecked)
-        {
             _trayAutoStartItem.Checked = AutoStartItem.IsChecked;
-            return;
-        }
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true);
