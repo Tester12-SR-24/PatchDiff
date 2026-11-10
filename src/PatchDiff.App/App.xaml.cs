@@ -15,7 +15,13 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         // ---- single instance ----
-        _instanceMutex = new Mutex(true, @"Local\PatchDiff.SingleInstance", out var createdNew);
+        // PATCHDIFF_ALLOW_MULTI=1 lets an isolated test/demo instance run alongside the
+        // user's main one (QA harnesses, screenshots). Normal runs keep single-instance.
+        var allowMulti = Environment.GetEnvironmentVariable("PATCHDIFF_ALLOW_MULTI") == "1";
+        bool createdNew;
+        _instanceMutex = allowMulti
+            ? new Mutex(true, @"Local\PatchDiff.SingleInstance." + Guid.NewGuid().ToString("N"), out createdNew)
+            : new Mutex(true, @"Local\PatchDiff.SingleInstance", out createdNew);
         _restoreEvent = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\PatchDiff.Restore");
 
         if (!createdNew)
@@ -102,7 +108,6 @@ public partial class App : Application
             try
             {
                 var doc = System.Xml.Linq.XDocument.Parse(text);
-                var pres = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
                 var xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml";
                 var implicitTargets = new List<string>();
                 foreach (var dict in doc.Descendants("{http://schemas.microsoft.com/winfx/2006/xaml/presentation}ResourceDictionary"))

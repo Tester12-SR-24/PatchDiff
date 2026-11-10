@@ -80,7 +80,7 @@ public partial class MainWindow : Window
             UpdateFooter();
             if (_settings.BalloonOnPatch)
             {
-                var title = w.IsDemo ? "Demo patched" : "DLL updated";
+                var title = "DLL updated";
                 _trayIcon?.ShowBalloonTip(4000, title,
                     $"{w.Name}: +{diff.Added} added, −{diff.Removed} removed, ~{diff.Modified} modified",
                     System.Windows.Forms.ToolTipIcon.Info);
@@ -248,7 +248,6 @@ public partial class MainWindow : Window
 
     UIElement BuildOverviewPanel()
     {
-        var demo = _mgr.Watched.FirstOrDefault(x => x.IsDemo);
         var panel = new StackPanel
         {
             Margin = new Thickness(28, 22, 28, 12),
@@ -257,7 +256,7 @@ public partial class MainWindow : Window
 
         panel.Children.Add(new TextBlock
         {
-            Text = demo is not null ? "Demo session running" : "Welcome to PatchDiff",
+            Text = "Welcome to PatchDiff",
             FontSize = 18,
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 0, 0, 8),
@@ -300,44 +299,7 @@ public partial class MainWindow : Window
         buttons.Children.Add(compareBtn);
         panel.Children.Add(buttons);
 
-        var demoStrip = new System.Windows.Controls.Border
-        {
-            Background = new SolidColorBrush(Color.FromRgb(0x23, 0x23, 0x27)),
-            BorderBrush = demo is not null
-                ? (Brush?)TryFindResource("AccentBrush") ?? new SolidColorBrush(Color.FromRgb(0x6a, 0x71, 0x85))
-                : new SolidColorBrush(Color.FromRgb(0x38, 0x38, 0x3f)),
-            BorderThickness = new Thickness(1),
-            Opacity = demo is not null ? 0.9 : 1,
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(10, 8, 10, 8),
-            Margin = new Thickness(0, 14, 0, 10),
-        };
-        // Wrapping layout: the description text takes the free space and wraps,
-        // the button never overflows even in a narrow window.
-        var demoRow = new DockPanel { LastChildFill = true };
-        var demoBtn = new Button
-        {
-            Content = demo is not null ? "Clear demo" : "Try the demo",
-            Padding = new Thickness(9, 3, 9, 3),
-            FontSize = 11,
-            Margin = new Thickness(12, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        demoBtn.Click += (_, _) => { if (demo is not null) ClearDemoSession(); else StartDemoSession(); };
-        DockPanel.SetDock(demoBtn, Dock.Right);
-        demoRow.Children.Add(demoBtn);
-        demoRow.Children.Add(new TextBlock
-        {
-            Text = demo is not null
-                ? "Demo session active — sample data, nothing persisted."
-                : "Want to look around first? Load the bundled demo assembly — nothing is saved, and clearing it takes one click.",
-            TextWrapping = TextWrapping.Wrap,
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = System.Windows.Media.Brushes.LightGray,
-        });
 
-        demoStrip.Child = demoRow;
-        panel.Children.Add(demoStrip);
 
         panel.Children.Add(new TextBlock
         {
@@ -368,45 +330,8 @@ public partial class MainWindow : Window
 
     // ---------------- demo session (never persisted) ----------------
 
-    public void StartDemoSession()
-    {
-        try
-        {
-            var res = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/demo.dll"));
-            if (res is null)
-            {
-                AddLog("Demo library missing from the installation.");
-                return;
-            }
-            var demoPath = Path.Combine(SnapshotStore.DataRoot, "demo", "demo.dll");
-            Directory.CreateDirectory(Path.GetDirectoryName(demoPath)!);
-            using (var input = res.Stream)
-            using (var output = File.Create(demoPath))
-                input.CopyTo(output);
 
-            _settings.DemoCleared = false;
-            _mgr.Add(demoPath, isDemo: true);
-            AddLog("Demo session started — a sample assembly is loaded in-memory. Nothing is persisted; use Clear demo to remove it.");
-        }
-        catch (Exception ex)
-        {
-            AddLog($"Could not start demo session: {ex.Message}");
-        }
-    }
 
-    void ClearDemoSession()
-    {
-        var demo = _mgr.Watched.FirstOrDefault(x => x.IsDemo);
-        if (demo is null)
-        {
-            AddLog("No demo session running.");
-            return;
-        }
-        _mgr.Remove(demo); // nothing on disk to purge for a demo session
-        _settings.DemoCleared = true;
-        SaveAll();
-        AddLog("Demo session cleared.");
-    }
 
     void OpenHistoryTab(WatchedDll w)
     {
