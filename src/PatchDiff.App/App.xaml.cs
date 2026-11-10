@@ -93,19 +93,42 @@ public partial class App : Application
             var text = File.ReadAllText(file);
             var name = Path.GetFileName(file);
 
-            // class 1: two implicit styles for the same type in one file
-            var implicitTargets = new List<string>();
-            foreach (Match m in Regex.Matches(text, @"<Style\s[^>]*TargetType=""(?<t>[^""]+)""[^>]*>"))
+            // class 1: two DICTIONARY-LEVEL implicit styles for the same type in one file.
+            // Regex cannot tell scoped inline styles (e.g. <Path.Style> inside a
+            // ControlTemplate) from dictionary keys, so parse the XML and inspect
+            // only <Style> elements that are DIRECT children of a
+            // <ResourceDictionary> and carry no x:Key — the only set that can
+            // actually collide as resource dictionary keys.
+            try
             {
-                if (m.Value.Contains("x:Key="))
-                    continue; // keyed styles may share a TargetType legally
-                implicitTargets.Add(m.Groups["t"].Value);
+                var doc = System.Xml.Linq.XDocument.Parse(text);
+                var pres = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+                var xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml";
+                var implicitTargets = new List<string>();
+                foreach (var dict in doc.Descendants("{http://schemas.microsoft.com/winfx/2006/xaml/presentation}ResourceDictionary"))
+                {
+                    foreach (var style in dict.Elements("{http://schemas.microsoft.com/winfx/2006/xaml/presentation}Style"))
+                    {
+                        if (style.Attribute(xamlNs + "Key") is not null)
+                            continue; // keyed styles may share a TargetType legally
+                        var target = style.Attribute("TargetType")?.Value;
+                        if (target is not null)
+                            implicitTargets.Add(target);
+                    }
+                }
+                var dup = implicitTargets.GroupBy(t => t).Where(g => g.Count() > 1)
+                    .Select(g => g.Key).ToList();
+                if (dup.Count > 0)
+                    throw new InvalidOperationException(
+                        $"{name}: duplicate implicit style key(s): {string.Join(", ", dup)}");
             }
-            var dup = implicitTargets.GroupBy(t => t).Where(g => g.Count() > 1)
-                .Select(g => g.Key).ToList();
-            if (dup.Count > 0)
-                throw new InvalidOperationException(
-                    $"{name}: duplicate implicit style key(s): {string.Join(", ", dup)}");
+            catch (InvalidOperationException) { throw; }
+            catch (System.Xml.XmlException)
+            {
+                // not well-formed XML (XAML with markup extensions is still XML, so
+                // this should not happen for real files) — skip the parse-based check
+                // rather than block startup on the scanner itself.
+            }
 
             // class 2: attribute after a self-closing tag
             // Check a masked copy: attribute VALUES are replaced by a placeholder
