@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -897,8 +898,11 @@ public partial class MainWindow : Window
                 if (l >= -100 && t >= -100)
                 {
                     WindowStartupLocation = WindowStartupLocation.Manual;
-                    Left = l;
-                    Top = t;
+                    // Clamp to the primary screen's work area so a saved position from a
+                    // disconnected monitor can't strand the window off-screen.
+                    var area = SystemParameters.WorkArea;
+                    Left = Math.Clamp(l, -wd + 100, area.Width - 100);
+                    Top = Math.Clamp(t, 0, area.Height - 100);
                 }
                 Width = wd;
                 Height = ht;
