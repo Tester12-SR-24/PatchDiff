@@ -1,4 +1,6 @@
 using System.IO;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Security.Cryptography;
 using PatchDiff.Models;
 using ICSharpCode.Decompiler;
@@ -22,10 +24,33 @@ public sealed class DecompilerService
         @"C:\Windows\Microsoft.NET\assembly\GAC_MSIL",
     };
 
+    /// <summary>
+    /// Decompiler settings modelled on ILSpy's own defaults (ILSpy's DecompilerSettings is
+    /// the reference implementation for this engine): modern C# constructs are rendered as
+    /// such instead of being lowered to verbose older syntax, dead code/stores are folded
+    /// away, and unresolvable references degrade gracefully instead of throwing.
+    /// </summary>
+    public static DecompilerSettings CreateSettings() => new()
+    {
+        UsingDeclarations = true,               // file-scoped using blocks instead of fully-qualified names
+        SwitchExpressions = true,               // `x switch { ... }` over long if-chains
+        RemoveDeadCode = true,                  // ILSpy behaviour: drop unreachable branches
+        RemoveDeadStores = true,                // and stores whose value is never read
+        AnonymousMethods = true,                // lambdas instead of anonymous delegates
+        StringInterpolation = true,             // $"{x}" instead of string.Format
+        PatternMatching = true,                 // is-patterns and switch on type
+        UseImplicitMethodGroupConversion = true,
+        ThrowOnAssemblyResolveErrors = false,   // Unresolved refs render as-is, never abort the type
+        ShowXmlDocumentation = false,           // keep diff noise down (docs are not code)
+        AlwaysUseBraces = false,                // ILSpy keeps single-statement bodies brace-less
+        SeparateLocalVariableDeclarations = false,
+    };
+
     public AssemblySnapshot Build(string dllPath, Action<int, int>? progress = null) =>
         BuildWithBytes(dllPath, progress).snapshot;
 
-    public (AssemblySnapshot snapshot, byte[] bytes) BuildWithBytes(string dllPath, Action<int, int>? progress = null)
+    public (AssemblySnapshot snapshot, byte[] bytes) BuildWithBytes(string dllPath,
+        Action<int, int>? progress = null, CancellationToken cancellationToken = default)
     {
         byte[] bytes;
         {
@@ -43,14 +68,19 @@ public sealed class DecompilerService
 
         var resolver = new DirectoryAssemblyResolver(Path.GetDirectoryName(dllPath)!);
         var typeSystem = new DecompilerTypeSystem(module, resolver);
-        var decompiler = new CSharpDecompiler(typeSystem, new DecompilerSettings());
+        var decompiler = new CSharpDecompiler(typeSystem, CreateSettings())
+        {
+            CancellationToken = cancellationToken,
+        };
 
         var types = new List<TypeSource>();
+        var fullNameSeen = new Dictionary<string, int>(StringComparer.Ordinal);
         var all = typeSystem.MainModule.TopLevelTypeDefinitions.ToList();
         int i = 0;
         foreach (var def in all)
         {
             i++;
+            cancellationToken.ThrowIfCancellationRequested();
             progress?.Invoke(i, all.Count);
 
             // Skip compiler-generated artifacts (<PrivateImplementationDetails>, lambdas, anonymous types...)
@@ -62,13 +92,29 @@ public sealed class DecompilerService
             string source;
             try
             {
-                source = decompiler.DecompileTypeAsString(new FullTypeName(def.FullName));
+                // def.FullTypeName is the decompiler's own canonical type name; going through
+                // the FullName string round-trip can mis-render generic arity in edge cases.
+                source = decompiler.DecompileTypeAsString(def.FullTypeName);
             }
             catch (Exception ex)
             {
-                source = $"// Decompilation failed for {def.FullName}: {ex.Message}";
+                // ILSpy's fallback strategy: when C# decompilation fails, show the IL rather
+                // than nothing. That keeps the type in the diff (so a change is still visible)
+                // and gives a human something actionable to read.
+                source = DisassembleOrExplain(module, def.MetadataToken, def.FullName, ex);
             }
     
+            string fullName = def.FullName;
+            if (fullNameSeen.TryGetValue(fullName, out var seen))
+            {
+                fullNameSeen[fullName] = seen + 1;
+                fullName = $"{fullName}#{seen + 1}";
+            }
+            else
+            {
+                fullNameSeen[fullName] = 1;
+            }
+
         // Collect short member signatures for the assembly explorer tree.
         List<string>? signatures = null;
         try
@@ -130,7 +176,15 @@ public sealed class DecompilerService
         {
             signatures = null; // fall back to types-only tree
         }
-        types.Add(new TypeSource { FullName = def.FullName, Source = source, Signatures = signatures });
+        types.Add(new TypeSource
+        {
+            // Distinct types can collide on FullName in edge cases (obfuscated/dynamic
+            // metadata). Suffix duplicates instead of silently merging (the old dedupe
+            // dropped all but the first) so every type stays visible in diffs.
+            FullName = fullName,
+            Source = source,
+            Signatures = signatures,
+        });
 
         }
 
@@ -144,6 +198,42 @@ public sealed class DecompilerService
             Types = types,
         };
         return (snapshot, bytes);
+    }
+
+    /// <summary>
+    /// Renders the type's IL as a readable listing. Falls back to a diagnostic comment only
+    /// if even the disassembler fails (corrupt metadata etc.).
+    /// </summary>
+    static string DisassembleOrExplain(PEFile module, EntityHandle handle,
+        string fullName, Exception decompileError)
+    {
+        try
+        {
+            if (handle.Kind != HandleKind.TypeDefinition)
+                throw new InvalidOperationException($"unexpected metadata handle kind: {handle.Kind}");
+            var typeHandle = (TypeDefinitionHandle)handle;
+            var output = new PlainTextOutput();
+            var disassembler = new ICSharpCode.Decompiler.Disassembler.ReflectionDisassembler(output, CancellationToken.None);
+            disassembler.DisassembleType(module, typeHandle);
+            var il = output.ToString().Trim();
+            if (il.Length == 0)
+                throw new InvalidOperationException("empty IL listing");
+
+            return $"""
+// C# decompilation failed for {fullName} ({decompileError.GetType().Name}: {decompileError.Message})
+// Falling back to the IL listing, as ILSpy does. This type still participates in diffs.
+{il}
+""";
+        }
+        catch (Exception ilError)
+        {
+            // Surface SOMETHING per member (QA requirement): a failed member must show up in
+            // diffs as a changed source block, never silently disappear.
+            return $"""
+// Decompilation failed for {fullName}: {decompileError.Message}
+// IL fallback also failed: {ilError.GetType().Name}: {ilError.Message}
+""";
+        }
     }
 
     static FileStream OpenWithRetry(string path, int attempts = 24, int delayMs = 500)
