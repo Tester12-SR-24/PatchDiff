@@ -648,57 +648,57 @@ public partial class MainWindow : Window
     void OnCheckForUpdates(object sender, RoutedEventArgs e)
     {
         AddLog("Checking for updates…");
-        try
+        var updater = new UpdaterService();
+        var release = updater.GetLatestReleaseAsync().GetAwaiter().GetResult();
+        if (release is null)
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("PatchDiff");
-            var json = http.GetStringAsync("https://api.github.com/repos/Tester12-SR-24/PatchDiff/releases/latest").GetAwaiter().GetResult();
-            using var doc = JsonDocument.Parse(json);
-            var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
-            var url = doc.RootElement.GetProperty("html_url").GetString() ?? "";
-            var local = Version.TryParse(CurrentVersion(), out var lv) ? lv : null;
-            var remote = Version.TryParse(tag.TrimStart('v'), out var rv) ? rv : null;
-            if (remote is not null && local is not null && remote > local)
-            {
-                if (MessageBox.Show(this,
-                        $"PatchDiff {remote} is available (you have {local.ToString(3)}).\n\nOpen the releases page?",
-                        "Update available", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
-                    Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                AddLog($"Update available: {tag}.");
-            }
-            else
-            {
-                MessageBox.Show(this, "PatchDiff is up to date.", "Check for updates", MessageBoxButton.OK, MessageBoxImage.Information);
-                AddLog("Up to date.");
-            }
+            AddLog("Could not reach the releases feed (offline, private repo without credentials, or no releases yet).");
+            MessageBox.Show(this,
+                "Could not check for updates.\n\nThe releases feed was unreachable (offline, private repository without credentials, or no releases published yet).",
+                "Check for updates", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
         }
-        catch (Exception ex)
-        {
-            AddLog($"Update check failed: {ex.Message}");
-        }
-    }
 
-    public static string CurrentVersion()
-    {
-        try
+        if (!UpdaterService.IsNewer(release))
         {
-            var fv = FileVersionInfo.GetVersionInfo(Environment.ProcessPath!);
-            var v = fv.ProductVersion;
-            if (string.IsNullOrEmpty(v))
-                v = fv.FileVersion;
-            if (string.IsNullOrEmpty(v))
-                v = typeof(MainWindow).Assembly.GetName().Version?.ToString(3);
-            return v ?? "?";
+            MessageBox.Show(this,
+                $"PatchDiff is up to date.\n\nLatest release: {release.Tag} ({release.Name})\n\nYou are running: {UpdaterService.CurrentVersion()}",
+                "Check for updates", MessageBoxButton.OK, MessageBoxImage.Information);
+            AddLog($"Up to date (latest release: {release.Tag}).");
+            return;
         }
-        catch
-        {
-            return typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "?";
-        }
-    }
 
+        var choice = MessageBox.Show(this,
+            $"PatchDiff {release.Tag} is available ({release.Name}).\n\n" +
+            $"You are running: {UpdaterService.CurrentVersion()}."+"\n\n" +
+            "Download and install it now? PatchDiff will close, update itself, and restart."+"\n\n" +
+            "(Snapshots, reports and settings are not touched by the update.)",
+            "Update available", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        AddLog($"Update available: {release.Tag}.");
+        if (choice != MessageBoxResult.Yes)
+        {
+            Process.Start(new ProcessStartInfo(release.PageUrl) { UseShellExecute = true });
+            return;
+        }
+
+        var staging = updater.DownloadAndStageAsync(release,
+            msg => Dispatcher.BeginInvoke(() => AddLog(msg))).GetAwaiter().GetResult();
+        if (staging is null)
+        {
+            AddLog("Update download failed — details in the updater log.");
+            MessageBox.Show(this,
+                "The update could not be downloaded or extracted.\nDetails were written to the updater log under the data folder.",
+                "Update failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        AddLog("Update staged — applying on exit…");
+        updater.LaunchApplyAfterExit(staging);
+        Application.Current.Shutdown();
+    }
     void OnAbout(object sender, RoutedEventArgs e)
         => MessageBox.Show(this,
-            $"PatchDiff {CurrentVersion()}\n\nWatch .NET/Unity DLLs; decompile with the ILSpy engine; diff, report, repeat.\n\nLicensed under the WTFPL.",
+            $"PatchDiff {UpdaterService.CurrentVersion()}\n\nWatch .NET/Unity DLLs; decompile with the ILSpy engine; diff, report, repeat.\n\nLicensed under the WTFPL.",
             "About PatchDiff", MessageBoxButton.OK, MessageBoxImage.Information);
 
     // ---------------- drag & drop ----------------
