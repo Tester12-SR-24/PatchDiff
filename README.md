@@ -48,7 +48,6 @@ touching the game files themselves.
 | 🗄 | **Revision archive** | Every version of every watched DLL is kept: a manifest per revision (SHA-256, assembly version, timestamp, type count) plus the original DLL bytes, so you can study or restore any old build. |
 | 🕘 | **History & restore** | Compare any two archived revisions, restore an old build with one click, and name revisions (e.g. *"Season 4 launch"*) so the history reads like a changelog. |
 | 🔢 | **Revision matrix** | A grid of every archived revision; click a cell to compute that exact pair's diff, click again to open it. Compare any two versions, not just neighbours. |
-| 🎮 | **Demo mode** | Try the whole watch → patch → diff flow on a bundled sample assembly. Demo sessions run entirely in memory: nothing is saved and your real games are never touched. |
 | 📄 | **HTML reports** | Self-contained, start-collapsed diff reports for every detected patch. |
 | 🔎 | **Type search** | Search every decompiled `.cs` file across all watched baselines at once. |
 | 💾 | **Persistence & auto-start** | Watch list, timeline, baselines and window state survive restarts; optional *Start with Windows* so a rebooted PC keeps watching. |
@@ -137,7 +136,6 @@ Run `PatchDiff.exe`. On first launch you get a short welcome screen with three a
 - **Watch a real DLL…** — pick e.g. `<game>_Data\Managed\Assembly-CSharp.dll`
 - **Watch a whole folder…** — pick any DLL inside `…_Data\Managed` to watch them all
 - **Compare two DLLs…** — one-shot diff without watching anything
-- **Try the demo** — explore the app with a sample assembly (nothing is saved)
 
 The window is split into three areas:
 
@@ -160,7 +158,7 @@ menu (or **File ▸ Exit**) to quit properly.
 │  C:\> patchdiff compare old\Assembly-CSharp.dll new\Assembly-CSharp.dll    │
 │                                                                            │
 │  PatchDiff — decompiled diff                                               │
-│  Demo.dll: 2 types added, 0 removed, 5 modified                            │
+│  Sample.dll: 2 types added, 0 removed, 5 modified                            │
 │  Report: C:\Users\you\AppData\Local\PatchDiff\Reports\demo.html            │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -228,7 +226,7 @@ else — useful for portable installs or running isolated instances side by side
 
 </details>
 
-## 📝 Notes
+## 📝 Technical notes
 
 - Works with **Mono-scripted** Unity games (managed `Assembly-CSharp.dll` and friends in
   `<game>_Data\Managed`). IL2CPP builds compile to native code — nothing to decompile.
