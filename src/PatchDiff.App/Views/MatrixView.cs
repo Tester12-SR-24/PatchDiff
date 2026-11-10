@@ -91,7 +91,9 @@ public partial class MatrixView : UserControl
                     var upper = FindCellButtonAt(r + 1, c + 1);
                     var lo = MakeCell();
                     lo.Content = "…";
-                    lo.Click += (_, _) => _ = ComputeCellAsync(c, r);
+                    // mirror of the upper cell (row r, col c): compute in the same
+                    // old→new direction, not (c, r), which would reverse the diff
+                    lo.Click += (_, _) => _ = ComputeCellAsync(r, c);
                     Grid.SetRow(lo, r + 1);
                     Grid.SetColumn(lo, c + 1);
                     MatrixGrid.Children.Add(lo);

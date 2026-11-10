@@ -15,6 +15,7 @@
     <Window.Resources>
         <local:KindToBrushConverter x:Key="DiffBrush"/>
         <local:CollapsedWhenHasItemsConverter x:Key="CollapsedWhenHasItems"/>
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <Style x:Key="PillBorder" TargetType="Border">
             <Setter Property="CornerRadius" Value="9"/>
             <Setter Property="Padding" Value="7,1"/>
@@ -102,26 +103,17 @@
                             </TextBlock.Style>
                         </TextBlock>
                     </Grid>
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                    <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
                         <Button Click="OnAddDll" ToolTip="Add a DLL to watch" Style="{StaticResource AccentButton}" ctl:IconGlyph.Geometry="{StaticResource IconAdd}">
-<StackPanel Orientation="Horizontal">
-
-<TextBlock Text="Add DLL" VerticalAlignment="Center"/>
-</StackPanel>
-</Button>
+                            <TextBlock Text="Add DLL" VerticalAlignment="Center"/>
+                        </Button>
                         <Button Click="OnAddFolder" ToolTip="Add every DLL in a folder" ctl:IconGlyph.Geometry="{StaticResource IconFolder}">
-<StackPanel Orientation="Horizontal">
-
-<TextBlock Text="Folder…" VerticalAlignment="Center"/>
-</StackPanel>
-</Button>
+                            <TextBlock Text="Folder…" VerticalAlignment="Center"/>
+                        </Button>
                         <Button Click="OnSettings" ToolTip="Settings" ctl:IconGlyph.Geometry="{StaticResource IconSettings}">
-<StackPanel Orientation="Horizontal">
-
-<TextBlock Text="Settings" VerticalAlignment="Center"/>
-</StackPanel>
-</Button>
-                    </StackPanel>
+                            <TextBlock Text="Settings" VerticalAlignment="Center"/>
+                        </Button>
+                    </WrapPanel>
                     <TextBlock DockPanel.Dock="Top" Text="WATCHED ASSEMBLIES" Style="{StaticResource SectionHeader}"/>
                     <ListBox x:Name="WatchedList" DockPanel.Dock="Top" MaxHeight="200"
                              BorderThickness="0" Background="Transparent"
@@ -141,19 +133,14 @@
                     </ListBox>
                     <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,0">
                         <Button ctl:IconGlyph.Geometry="{StaticResource IconRecheck}" Content="Re-check" Click="OnRecheck" Padding="7,3" FontSize="11" ToolTip="Re-check the selected assembly" Margin="0,0,6,4"/>
-                        <Button Click="OnOpenDiff" ToolTip="Open the latest diff" ctl:IconGlyph.Geometry="{StaticResource IconDiff}">
-<StackPanel Orientation="Horizontal">
-
-<TextBlock Text="Diff" VerticalAlignment="Center"/>
-</StackPanel>
-</Button>
+                        <Button Click="OnOpenDiff" ToolTip="Open the latest diff" ctl:IconGlyph.Geometry="{StaticResource IconDiff}"><TextBlock Text="Diff" VerticalAlignment="Center"/></Button>
                         <Button Content="Browse" Click="OnBrowse" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
                         <Button Content="History" Click="OnHistory" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconHistory}"/>
 
                         <Button Content="Sources" Click="OnExportSources" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconSources}"/>
                         <Button Content="Report" Click="OnOpenReport" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconReport}"/>
                         <Button ctl:IconGlyph.Geometry="{StaticResource IconRemove}" Content="Remove" Click="OnRemoveWatch" Padding="7,3" FontSize="11" ToolTip="Stop watching the selected assembly and delete its baseline" Margin="0,0,6,4"/>
-                        <Button Content="× All" Click="OnRemoveAll" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
+                        <Button Content="× All" Click="OnRemoveAll" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconRemoveAll}"/>
                     </WrapPanel>
                     <TextBlock DockPanel.Dock="Top" Text="TIMELINE" Style="{StaticResource SectionHeader}"/>
                     <ListBox x:Name="TimelineList" BorderThickness="0" Background="Transparent"
@@ -203,7 +190,8 @@
                                     <TextBlock Text="{Binding Header}" Margin="2,0,8,0"/>
                                     <Button Content="✕" FontSize="9" Padding="3,0" Background="Transparent"
                                             Foreground="#9a9aa9" BorderThickness="0" Cursor="Hand"
-                                            Command="{Binding CloseCommand}"/>
+                                            Command="{Binding CloseCommand}"
+                                            Visibility="{Binding IsClosable, Converter={StaticResource BoolToVisibility}}"/>
                                 </StackPanel>
                             </DataTemplate>
                         </TabControl.ItemTemplate>

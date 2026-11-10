@@ -124,6 +124,7 @@ public partial class MainWindow : Window
 
     sealed class TabModel
     {
+        public bool IsClosable { get; set; } = true;
         public string Header { get; set; } = "";
         public object Content { get; set; } = "";
         public ICommand CloseCommand { get; }
@@ -148,6 +149,37 @@ public partial class MainWindow : Window
         public void Execute(object? parameter) => _execute(parameter);
     }
 
+    /// <summary>Icon + text content for dynamically created buttons (onboarding cards).</summary>
+    static object IconContent(string iconKey, string text)
+    {
+        var app = Application.Current;
+        var glyph = app?.TryFindResource(iconKey) as System.Windows.Media.Geometry;
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        if (glyph is not null)
+        {
+            var path = new System.Windows.Shapes.Path
+            {
+                Data = glyph,
+                StrokeThickness = 1.8,
+                StrokeStartLineCap = System.Windows.Media.PenLineCap.Round,
+                StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
+                StrokeLineJoin = System.Windows.Media.PenLineJoin.Round,
+                Fill = null,
+                Width = 15,
+                Height = 15,
+                Stretch = System.Windows.Media.Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0),
+            };
+            // inherit the button's Foreground (incl. accent/hover states)
+            path.SetBinding(System.Windows.Shapes.Shape.StrokeProperty,
+                new System.Windows.Data.Binding(nameof(Control.Foreground)) { RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.FindAncestor, typeof(Control), 1) });
+            row.Children.Add(path);
+        }
+        row.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
+        return row;
+    }
+
     void AddTab(string header, object content, bool closable = true)
     {
         // focus existing tab with the same header
@@ -159,7 +191,7 @@ public partial class MainWindow : Window
                 return;
             }
         }
-        var model = new TabModel(this) { Header = header, Content = content };
+        var model = new TabModel(this) { Header = header, Content = content, IsClosable = closable };
         WorkTabs.Items.Add(model);
         WorkTabs.SelectedItem = model;
     }
@@ -185,7 +217,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            var model = new TabModel(this) { Header = "Overview", Content = panel };
+            var model = new TabModel(this) { Header = "Overview", Content = panel, IsClosable = false };
             WorkTabs.Items.Insert(0, model);
             WorkTabs.SelectedItem = model;
         }
@@ -220,24 +252,27 @@ public partial class MainWindow : Window
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal };
         var watchReal = new Button
         {
-            Content = "f4c2 Watch a real DLL…",
+            Content = IconContent("IconFolder", "Watch a real DLL…"),
             Padding = new Thickness(10, 5, 10, 5),
             Style = (Style)FindResource("AccentButton"),
         };
+        IconGlyph.SetGeometry(watchReal, (System.Windows.Media.Geometry?)FindResource("IconAdd"));
         watchReal.Click += (_, _) => OnAddDll(this, new RoutedEventArgs());
         buttons.Children.Add(watchReal);
         var watchFolder = new Button
         {
-            Content = "f4c2 Watch a whole folder…",
+            Content = IconContent("IconFolder", "Watch a whole folder…"),
             Padding = new Thickness(10, 5, 10, 5),
         };
+        IconGlyph.SetGeometry(watchFolder, (System.Windows.Media.Geometry?)FindResource("IconFolder"));
         watchFolder.Click += (_, _) => OnAddFolder(this, new RoutedEventArgs());
         buttons.Children.Add(watchFolder);
         var compareBtn = new Button
         {
-            Content = "⚖ Compare two DLLs…",
+            Content = IconContent("IconCompare", "Compare two DLLs…"),
             Padding = new Thickness(10, 5, 10, 5),
         };
+        IconGlyph.SetGeometry(compareBtn, (System.Windows.Media.Geometry?)FindResource("IconCompare"));
         compareBtn.Click += (_, _) => OnCompareTwo(this, new RoutedEventArgs());
         buttons.Children.Add(compareBtn);
         panel.Children.Add(buttons);
@@ -259,7 +294,7 @@ public partial class MainWindow : Window
         var demoRow = new DockPanel { LastChildFill = true };
         var demoBtn = new Button
         {
-            Content = demo is not null ? "Clear demo" : "▶ Try the demo",
+            Content = demo is not null ? IconContent("IconClose", "Clear demo") : IconContent("IconOpenExternal", "Try the demo"),
             Padding = new Thickness(9, 3, 9, 3),
             FontSize = 11,
             Margin = new Thickness(12, 0, 0, 0),
@@ -548,7 +583,9 @@ public partial class MainWindow : Window
 
     void OnReloadAllExecuted(object? sender, ExecutedRoutedEventArgs? e) => OnReloadAll(sender, e);
 
-    void OnCompareTwo(object sender, RoutedEventArgs e)
+    void OnCompareTwo(object sender, RoutedEventArgs e) => _ = CompareTwoFlowAsync();
+
+    async Task CompareTwoFlowAsync()
     {
         var dlg = new OpenFileDialog { Title = "OLD version of the DLL", Filter = "Assemblies (*.dll;*.exe)|*.dll;*.exe" };
         if (dlg.ShowDialog(this) != true)
@@ -559,7 +596,7 @@ public partial class MainWindow : Window
             return;
 
         AddLog("Comparing…");
-        var diff = _mgr.CompareTwoAsync(oldPath, dlg.FileName).GetAwaiter().GetResult();
+        var diff = await _mgr.CompareTwoAsync(oldPath, dlg.FileName);
         if (diff is null)
             return;
         if (diff.HasChanges)
@@ -592,6 +629,7 @@ public partial class MainWindow : Window
     {
         _mgr.PollInterval = TimeSpan.FromSeconds(Math.Max(2, _settings.PollSeconds));
         _mgr.ArchiveKeep = _settings.ArchiveKeep;
+        _mgr.UpdatePollInterval();
     }
 
     void OnCheckForUpdates(object sender, RoutedEventArgs e)
@@ -740,6 +778,9 @@ public partial class MainWindow : Window
         }
 
         if (ct.IsCancellationRequested)
+            return;
+        // the query may have changed (or shrunk) while the search was running
+        if (SearchBox.Text.Trim() != query || query.Length < 2)
             return;
         SearchResults.ItemsSource = results;
         if (results.Count > 0)
