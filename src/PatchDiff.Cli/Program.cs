@@ -56,7 +56,6 @@ internal static class PatchDiffCli
         var newSnap = await Task.Run(() => new DecompilerService().Build(current, Progress));
         var diff = new DiffService().Compare(oldSnap, newSnap,
             title: $"{Path.GetFileName(old)} → {Path.GetFileName(current)}");
-        diff.Intelligence = DiffIntelligence.Analyze(diff);
 
         PrintSummary(diff);
 

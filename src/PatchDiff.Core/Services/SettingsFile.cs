@@ -16,7 +16,7 @@ public sealed class StoredSettings
 public static class SettingsFile
 {
     static string FilePath => System.IO.Path.Combine(SnapshotStore.DataRoot, "settings.json");
-    static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
+    static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
     public static StoredSettings Load()
     {
@@ -25,21 +25,31 @@ public static class SettingsFile
             if (!System.IO.File.Exists(FilePath))
                 return new StoredSettings();
 
-            var doc = JsonDocument.Parse(System.IO.File.ReadAllText(FilePath));
-            var root = doc.RootElement;
+            var json = System.IO.File.ReadAllText(FilePath);
 
-            var settings = new StoredSettings();
-            if (root.TryGetProperty("watched", out var watched) && watched.ValueKind == JsonValueKind.Array)
-                settings.Watched = watched.EnumerateArray().Select(v => v.GetString() ?? "").Where(s => s.Length > 0).ToList();
+            // Current format: flat StoredSettings as written by Save().
+            var settings = JsonSerializer.Deserialize<StoredSettings>(json, JsonOpts) ?? new StoredSettings();
+            settings.Watched = (settings.Watched ?? new()).Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
 
-            if (root.TryGetProperty("settings", out var s) && s.ValueKind == JsonValueKind.Object)
+            // Legacy format: { "watched": [...], "settings": { "pollSeconds": .. } }
+            // Guarded so a non-object root or wrong-typed value can't throw away the flat settings above.
+            try
             {
-                if (s.TryGetProperty("pollSeconds", out var poll)) settings.PollSeconds = poll.GetInt32();
-                if (s.TryGetProperty("balloonOnPatch", out var bal)) settings.BalloonOnPatch = bal.GetBoolean();
-                if (s.TryGetProperty("startMinimized", out var min)) settings.StartMinimized = min.GetBoolean();
-                if (s.TryGetProperty("archiveKeep", out var keep)) settings.ArchiveKeep = keep.GetInt32();
-                if (s.TryGetProperty("demoCleared", out var dc)) settings.DemoCleared = dc.GetBoolean();
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("settings", out var s) && s.ValueKind == JsonValueKind.Object)
+                {
+                    if (s.TryGetProperty("pollSeconds", out var poll) && poll.TryGetInt32(out var pollVal)) settings.PollSeconds = pollVal;
+                    if (s.TryGetProperty("balloonOnPatch", out var bal) && (bal.ValueKind == JsonValueKind.True || bal.ValueKind == JsonValueKind.False)) settings.BalloonOnPatch = bal.GetBoolean();
+                    if (s.TryGetProperty("startMinimized", out var min) && (min.ValueKind == JsonValueKind.True || min.ValueKind == JsonValueKind.False)) settings.StartMinimized = min.GetBoolean();
+                    if (s.TryGetProperty("archiveKeep", out var keep) && keep.TryGetInt32(out var keepVal)) settings.ArchiveKeep = keepVal;
+                    if (s.TryGetProperty("demoCleared", out var dc) && (dc.ValueKind == JsonValueKind.True || dc.ValueKind == JsonValueKind.False)) settings.DemoCleared = dc.GetBoolean();
+                }
             }
+            catch { /* legacy block is best-effort */ }
+
+            if (settings.PollSeconds < 1) settings.PollSeconds = 10;
+            if (settings.ArchiveKeep < 0) settings.ArchiveKeep = 0;
             return settings;
         }
         catch

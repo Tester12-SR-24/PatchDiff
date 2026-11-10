@@ -156,7 +156,6 @@ public sealed class WatchManager : IDisposable
                 var newSnap = _decompiler.Build(newPath, Report);
                 var oldSnap = _decompiler.Build(oldPath);
                 var diff = _diff.Compare(oldSnap, newSnap, title: $"{Path.GetFileName(oldPath)} → {Path.GetFileName(newPath)}");
-                diff.Intelligence = DiffIntelligence.Analyze(diff);
                 if (diff.HasChanges)
                 {
                     var report = SnapshotStore.WriteHtmlReport(diff);
@@ -207,6 +206,13 @@ public sealed class WatchManager : IDisposable
     }
 
     System.Timers.Timer? _pollTimer;
+    /// <summary>Re-arms the poll timer after PollInterval changes (settings dialog).</summary>
+    public void UpdatePollInterval()
+    {
+        if (_pollTimer is not null)
+            _pollTimer.Interval = PollInterval.TotalMilliseconds;
+    }
+
     void StartPollingIfNeeded()
     {
         if (_pollTimer is not null)
@@ -231,7 +237,17 @@ public sealed class WatchManager : IDisposable
             var data = TryReadAll(w.Path);
             if (data is null)
             {
-                w.Status = "File locked / unreadable";
+                if (!File.Exists(w.Path))
+                {
+                    w.Status = "File missing";
+                    w.PillKind = "error";
+                    w.PillText = "MISSING";
+                    Log($"{w.Name} no longer exists at {w.Path} — watch kept, awaiting the file to return.");
+                }
+                else
+                {
+                    w.Status = "File locked / unreadable";
+                }
                 return;
             }
 
@@ -248,13 +264,7 @@ public sealed class WatchManager : IDisposable
             }
 
             if (!File.Exists(w.Path))
-            {
-                w.Status = "File missing";
-                w.PillKind = "error";
-                w.PillText = "MISSING";
-                Log($"{w.Name} no longer exists at {w.Path} — watch kept, awaiting the file to return.");
-                return;
-            }
+                return; // file vanished between the read and now — the next poll/report surfaces it
 
             // Demo sessions live entirely in memory: nothing is persisted,
             // nothing is archived. Perfect for onboarding/sample data.
@@ -282,7 +292,6 @@ public sealed class WatchManager : IDisposable
                     w.Meta1 = $"v{demoSnap.AssemblyVersion} · {demoSnap.Types.Count} types";
                     w.ShaShort = sha;
                     var demoDiff = _diff.Compare(baseline, demoSnap);
-                    demoDiff.Intelligence = DiffIntelligence.Analyze(demoDiff);
                     _demoBaselines[w.Path] = demoSnap;
                     if (demoDiff.HasChanges)
                     {
@@ -369,7 +378,6 @@ public sealed class WatchManager : IDisposable
             }
 
             var diff = _diff.Compare(oldSnap, newSnap);
-            diff.Intelligence = DiffIntelligence.Analyze(diff);
             _revisions.Append(newSnap, newBytes, ArchiveKeep);
             SnapshotStore.Save(newSnap);
 

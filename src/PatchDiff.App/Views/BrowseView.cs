@@ -16,7 +16,6 @@ public partial class BrowseView : UserControl
     readonly WatchedDll _watch;
     Window _owner => Window.GetWindow(this)!;
 
-    public event Action<string>? PinRequested;
     public event Action<AssemblyDiffResult>? DiffRequested;
 
     public BrowseView(AssemblySnapshot snapshot, WatchedDll watch)
@@ -62,7 +61,7 @@ public partial class BrowseView : UserControl
         var root = new ExplorerNode
         {
             Kind = "Assembly",
-            Glyph = "⚙",
+            Glyph = "",
             Header = $"{Path.GetFileName(snapshot.AssemblyPath)} — {snapshot.Types.Count} types",
             IsExpanded = true,
         };
@@ -126,10 +125,10 @@ public partial class BrowseView : UserControl
                         typeNode.Children.Add(group);
                     }
 
-                    AddGroup("─ Fields", fields);
-                    AddGroup("◐ Properties", props);
-                    AddGroup("▶ Methods", methods);
-                    AddGroup("⚡ Events", events);
+                    AddGroup("Fields", fields);
+                    AddGroup("Properties", props);
+                    AddGroup("Methods", methods);
+                    AddGroup("Events", events);
                 }
 
                 firstType ??= typeNode;
@@ -177,16 +176,6 @@ public partial class BrowseView : UserControl
         }
     }
 
-    void OnPin(object sender, RoutedEventArgs e)
-    {
-        if (SelectedNode is not { Kind: "Type" } node || node.FullName is null)
-        {
-            MessageBox.Show(_owner, "Select a type in the tree to pin it.", "PatchDiff");
-            return;
-        }
-        PinRequested?.Invoke(node.FullName);
-    }
-
     void OnDiffPrev(object sender, RoutedEventArgs e) => RequestDiff(againstCurrent: false);
     void OnDiffCurrent(object sender, RoutedEventArgs e) => RequestDiff(againstCurrent: true);
 
@@ -219,8 +208,7 @@ public partial class BrowseView : UserControl
 
             var diff = new DiffService().Compare(oldSnap, newSnap,
                 title: $"{Path.GetFileName(_watch.Path)} ({oldSnap.AssemblyVersion} → {newSnap.AssemblyVersion})");
-            diff.Intelligence = DiffIntelligence.Analyze(diff);
-
+    
             if (diff.HasChanges)
                 DiffRequested?.Invoke(diff);
             else

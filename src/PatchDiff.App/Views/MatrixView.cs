@@ -25,11 +25,22 @@ public partial class MatrixView : UserControl
 
     public event Action<AssemblyDiffResult, string>? DiffRequested;
 
+    // Soft cap: the matrix is an N x N grid of live buttons; without a bound,
+    // a long history materializes thousands of cells at once. Show the most
+    // recent window; the caption tells the user what was left out.
+    const int MaxRevisions = 30;
+
     public MatrixView(WatchedDll watch, IReadOnlyList<AssemblySnapshot> revisions)
     {
         InitializeComponent();
         _watch = watch;
-        foreach (var snap in revisions.OrderBy(r => r.CapturedUtc))
+        var ordered = revisions.OrderBy(r => r.CapturedUtc).ToList();
+        if (ordered.Count > MaxRevisions)
+        {
+            SubtitleText.Text += $"  Showing the most recent {MaxRevisions} of {ordered.Count} revisions.";
+            ordered = ordered.Skip(ordered.Count - MaxRevisions).ToList();
+        }
+        foreach (var snap in ordered)
         {
             _revisions.Add(new MatrixRevision
             {
@@ -80,7 +91,9 @@ public partial class MatrixView : UserControl
                     var upper = FindCellButtonAt(r + 1, c + 1);
                     var lo = MakeCell();
                     lo.Content = "…";
-                    lo.Click += (_, _) => _ = ComputeCellAsync(c, r);
+                    // mirror of the upper cell (row r, col c): compute in the same
+                    // old→new direction, not (c, r), which would reverse the diff
+                    lo.Click += (_, _) => _ = ComputeCellAsync(r, c);
                     Grid.SetRow(lo, r + 1);
                     Grid.SetColumn(lo, c + 1);
                     MatrixGrid.Children.Add(lo);
@@ -132,6 +145,9 @@ public partial class MatrixView : UserControl
         MatrixGrid.Children.Add(stack);
     }
 
+    static Brush Theme(string key, Brush fallback) =>
+        Application.Current?.TryFindResource(key) as Brush ?? fallback;
+
     static System.Windows.Controls.Button MakeCell()
     {
         return new System.Windows.Controls.Button
@@ -139,9 +155,9 @@ public partial class MatrixView : UserControl
             FontFamily = new FontFamily("Consolas"),
             FontSize = 11,
             Padding = new Thickness(6, 5, 6, 5),
-            Background = new SolidColorBrush(Color.FromRgb(0x26, 0x26, 0x2b)),
-            Foreground = new SolidColorBrush(Color.FromRgb(0xc9, 0xd1, 0xe0)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0x2b, 0x2b, 0x31)),
+            Background = Theme("SurfaceBrush", new SolidColorBrush(Color.FromRgb(0x26, 0x26, 0x2b))),
+            Foreground = Theme("TextBrush", new SolidColorBrush(Color.FromRgb(0xc9, 0xd1, 0xe0))),
+            BorderBrush = Theme("HlBorderBrush", new SolidColorBrush(Color.FromRgb(0x2b, 0x2b, 0x31))),
             BorderThickness = new Thickness(1),
             Margin = new Thickness(2),
             Cursor = System.Windows.Input.Cursors.Hand,
@@ -188,7 +204,6 @@ public partial class MatrixView : UserControl
                 var d = new DiffService().Compare(a.Snapshot, b.Snapshot,
                     title: "{a} \u2192 {b}".Replace("{a}", Path.GetFileName(_watch.Path) + ": " + a.Label)
                                           .Replace("{b}", b.Label));
-                d.Intelligence = DiffIntelligence.Analyze(d);
                 return d;
             });
 
@@ -210,7 +225,14 @@ public partial class MatrixView : UserControl
         }
         catch (Exception ex)
         {
+            var errBrush = new SolidColorBrush(Color.FromRgb(0x5a, 0x24, 0x28));
             clicked.Content = "error";
+            clicked.Background = errBrush;
+            if (mirror is not null)
+            {
+                mirror.Content = "error";
+                mirror.Background = errBrush;
+            }
             MessageBox.Show(OwnerWindow, $"Compare failed: {ex.Message}", "PatchDiff");
         }
         finally

@@ -1,6 +1,7 @@
 <UserControl x:Class="PatchDiff.Views.HistoryView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                     xmlns:ctl="clr-namespace:PatchDiff"
              Background="#1e1e22"
              TextElement.Foreground="#e6e6e6">
     <DockPanel>
@@ -35,10 +36,25 @@
                             <TextBlock Text="{Binding TypeLabel}" FontSize="10.5" Foreground="#6f6f79"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="Diff vs previous" Click="OnDiffPrev" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
-                            <Button Content="Diff vs current" Click="OnDiffCurrent" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
-                            <Button Content="Restore…" Click="OnRestore" Padding="8,3" FontSize="11" Margin="0,0,6,0"/>
-                            <Button Content="▦ Matrix" Click="OnMatrix" Padding="8,3" FontSize="11"/>
+                            <Button Click="OnDiffPrev" ToolTip="Compare with the previous revision" Margin="0,0,6,0" ctl:IconGlyph.Geometry="{StaticResource IconDiff}">
+<StackPanel Orientation="Horizontal">
+
+<TextBlock Text="vs previous" VerticalAlignment="Center"/>
+</StackPanel>
+</Button>
+                            <Button Click="OnDiffCurrent" ToolTip="Compare with the newest archived version" Margin="0,0,6,0" ctl:IconGlyph.Geometry="{StaticResource IconDiff}">
+<StackPanel Orientation="Horizontal">
+
+<TextBlock Text="vs current" VerticalAlignment="Center"/>
+</StackPanel>
+</Button>
+                            <Button Content="Restore" Click="OnRestore" Padding="8,3" FontSize="11" Margin="0,0,6,0" ToolTip="Save this revision’s DLL to a folder" ctl:IconGlyph.Geometry="{StaticResource IconRestore}"/>
+                            <Button Click="OnMatrix" ToolTip="Revision matrix: diff any two revisions" ctl:IconGlyph.Geometry="{StaticResource IconMatrix}">
+<StackPanel Orientation="Horizontal">
+
+<TextBlock Text="Matrix" VerticalAlignment="Center"/>
+</StackPanel>
+</Button>
                         </StackPanel>
                     </Grid>
                 </DataTemplate>

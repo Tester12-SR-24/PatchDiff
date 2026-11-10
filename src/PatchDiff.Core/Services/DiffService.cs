@@ -17,8 +17,12 @@ public sealed class DiffService
 
     public AssemblyDiffResult Compare(AssemblySnapshot oldSnap, AssemblySnapshot newSnap, string? title = null)
     {
-        var oldMap = oldSnap.Types.ToDictionary(t => t.FullName, t => t.Source, StringComparer.Ordinal);
-        var newMap = newSnap.Types.ToDictionary(t => t.FullName, t => t.Source, StringComparer.Ordinal);
+        var oldMap = oldSnap.Types
+            .GroupBy(t => t.FullName, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().Source, StringComparer.Ordinal);
+        var newMap = newSnap.Types
+            .GroupBy(t => t.FullName, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().Source, StringComparer.Ordinal);
 
         var result = new AssemblyDiffResult
         {

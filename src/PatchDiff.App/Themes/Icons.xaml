@@ -4,13 +4,13 @@
     <!--
       PatchDiff icon set — stroke geometry on a 24×24 grid, designed for
       Stroke="{StaticResource TextBrush}" (or whatever Foreground the host control
-      uses), StrokeThickness 1.8, round caps + joins, Fill="None".
+      uses), StrokeThickness 1.8, round caps + joins, Fill="{x:Null}".
 
       Usage:
         <Path Data="{StaticResource IconAdd}" Stroke="{Binding Foreground,
               RelativeSource={RelativeSource AncestorType=Button}}"
               StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-              StrokeLineJoin="Round" Fill="None" Width="16" Height="16"
+              StrokeLineJoin="Round" Fill="{x:Null}" Width="16" Height="16"
               Stretch="Uniform" Margin="0,0,6,0"/>
     -->
 

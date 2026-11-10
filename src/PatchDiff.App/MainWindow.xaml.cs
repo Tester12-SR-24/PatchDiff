@@ -56,7 +56,11 @@ public partial class MainWindow : Window
         OpenOverviewTab();
         SystemEvents.SessionEnding += (_, _) => SaveAll();
         AutoStartItem.IsChecked = IsAutoStartEnabled();
-        Loaded += (_, _) => ((App)Application.Current).MainWindow = this;
+        Loaded += (_, _) =>
+        {
+            ((App)Application.Current).MainWindow = this;
+            DarkTitleBar.Enable(this);
+        };
         UpdateFooter();
     }
 
@@ -73,7 +77,6 @@ public partial class MainWindow : Window
             AddEvent("patched", "GAME PATCHED",
                 $"{w.Name} rewritten on disk → auto-diff completed ({diff.Added + diff.Removed + diff.Modified} type changes) → report saved");
             OpenDiffTab(w, diff);
-            UpdateIntelRail(diff.Intelligence);
             UpdateFooter();
             if (_settings.BalloonOnPatch)
             {
@@ -88,11 +91,34 @@ public partial class MainWindow : Window
             AddEvent("baseline", "BASELINE",
                 $"{w.Name} added to watch — baseline captured ({w.Meta1})"));
 
-        _mgr.Watched.CollectionChanged += (_, _) => UpdateFooter();
+        _mgr.Watched.CollectionChanged += (_, _) => { UpdateFooter(); SaveAll(); };
     }
 
-    void UpdateFooter() => FooterText.Text =
-        $"{_mgr.Watched.Count} watched · {Timeline.Count} timeline events · snapshots & reports: {SnapshotStore.DataRoot}";
+    void UpdateFooter()
+    {
+        // Show the data location with the user profile shortened, so screenshots
+        // and stream captures never leak the Windows account name.
+        FooterText.Text =
+            $"{_mgr.Watched.Count} watched · {Timeline.Count} timeline events · snapshots & reports: {DisplayPath(SnapshotStore.DataRoot)}";
+    }
+
+    internal static string DisplayPath(string path)
+    {
+        try
+        {
+            path = path.Replace("/", System.IO.Path.DirectorySeparatorChar.ToString());
+            var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrEmpty(profile) &&
+                path.StartsWith(profile, StringComparison.OrdinalIgnoreCase))
+                return "~" + path[profile.Length..].Replace('\\', '/');
+            var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (!string.IsNullOrEmpty(local) &&
+                path.StartsWith(local, StringComparison.OrdinalIgnoreCase))
+                return "%LOCALAPPDATA%" + path[local.Length..];
+        }
+        catch { /* display only — fall back to the raw path */ }
+        return path;
+    }
 
     void AddEvent(string kind, string badge, string message)
     {
@@ -121,6 +147,7 @@ public partial class MainWindow : Window
 
     sealed class TabModel
     {
+        public bool IsClosable { get; set; } = true;
         public string Header { get; set; } = "";
         public object Content { get; set; } = "";
         public ICommand CloseCommand { get; }
@@ -145,6 +172,37 @@ public partial class MainWindow : Window
         public void Execute(object? parameter) => _execute(parameter);
     }
 
+    /// <summary>Icon + text content for dynamically created buttons (onboarding cards).</summary>
+    static object IconContent(string iconKey, string text)
+    {
+        var app = Application.Current;
+        var glyph = app?.TryFindResource(iconKey) as System.Windows.Media.Geometry;
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        if (glyph is not null)
+        {
+            var path = new System.Windows.Shapes.Path
+            {
+                Data = glyph,
+                StrokeThickness = 1.8,
+                StrokeStartLineCap = System.Windows.Media.PenLineCap.Round,
+                StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
+                StrokeLineJoin = System.Windows.Media.PenLineJoin.Round,
+                Fill = null,
+                Width = 15,
+                Height = 15,
+                Stretch = System.Windows.Media.Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0),
+            };
+            // inherit the button's Foreground (incl. accent/hover states)
+            path.SetBinding(System.Windows.Shapes.Shape.StrokeProperty,
+                new System.Windows.Data.Binding(nameof(Control.Foreground)) { RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.FindAncestor, typeof(Control), 1) });
+            row.Children.Add(path);
+        }
+        row.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
+        return row;
+    }
+
     void AddTab(string header, object content, bool closable = true)
     {
         // focus existing tab with the same header
@@ -156,7 +214,7 @@ public partial class MainWindow : Window
                 return;
             }
         }
-        var model = new TabModel(this) { Header = header, Content = content };
+        var model = new TabModel(this) { Header = header, Content = content, IsClosable = closable };
         WorkTabs.Items.Add(model);
         WorkTabs.SelectedItem = model;
     }
@@ -182,7 +240,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            var model = new TabModel(this) { Header = "Overview", Content = panel };
+            var model = new TabModel(this) { Header = "Overview", Content = panel, IsClosable = false };
             WorkTabs.Items.Insert(0, model);
             WorkTabs.SelectedItem = model;
         }
@@ -191,7 +249,11 @@ public partial class MainWindow : Window
     UIElement BuildOverviewPanel()
     {
         var demo = _mgr.Watched.FirstOrDefault(x => x.IsDemo);
-        var panel = new StackPanel { Margin = new Thickness(28, 22, 28, 12) };
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(28, 22, 28, 12),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
 
         panel.Children.Add(new TextBlock
         {
@@ -210,27 +272,30 @@ public partial class MainWindow : Window
             Margin = new Thickness(0, 0, 0, 16),
         });
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+        var buttons = new WrapPanel { Orientation = Orientation.Horizontal };
         var watchReal = new Button
         {
-            Content = "f4c2 Watch a real DLL…",
+            Content = "Watch a real DLL…",
             Padding = new Thickness(10, 5, 10, 5),
             Style = (Style)FindResource("AccentButton"),
         };
+        IconGlyph.SetGeometry(watchReal, (System.Windows.Media.Geometry?)FindResource("IconAdd"));
         watchReal.Click += (_, _) => OnAddDll(this, new RoutedEventArgs());
         buttons.Children.Add(watchReal);
         var watchFolder = new Button
         {
-            Content = "f4c2 Watch a whole folder…",
+            Content = "Watch a whole folder…",
             Padding = new Thickness(10, 5, 10, 5),
         };
+        IconGlyph.SetGeometry(watchFolder, (System.Windows.Media.Geometry?)FindResource("IconFolder"));
         watchFolder.Click += (_, _) => OnAddFolder(this, new RoutedEventArgs());
         buttons.Children.Add(watchFolder);
         var compareBtn = new Button
         {
-            Content = "⚖ Compare two DLLs…",
+            Content = "Compare two DLLs…",
             Padding = new Thickness(10, 5, 10, 5),
         };
+        IconGlyph.SetGeometry(compareBtn, (System.Windows.Media.Geometry?)FindResource("IconCompare"));
         compareBtn.Click += (_, _) => OnCompareTwo(this, new RoutedEventArgs());
         buttons.Children.Add(compareBtn);
         panel.Children.Add(buttons);
@@ -238,34 +303,39 @@ public partial class MainWindow : Window
         var demoStrip = new System.Windows.Controls.Border
         {
             Background = new SolidColorBrush(Color.FromRgb(0x23, 0x23, 0x27)),
-            BorderBrush = new SolidColorBrush(demo is not null
-                ? Color.FromRgb(0x6a, 0x71, 0x85)
-                : Color.FromRgb(0x38, 0x38, 0x3f)),
+            BorderBrush = demo is not null
+                ? (Brush?)TryFindResource("AccentBrush") ?? new SolidColorBrush(Color.FromRgb(0x6a, 0x71, 0x85))
+                : new SolidColorBrush(Color.FromRgb(0x38, 0x38, 0x3f)),
             BorderThickness = new Thickness(1),
             Opacity = demo is not null ? 0.9 : 1,
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10, 8, 10, 8),
             Margin = new Thickness(0, 14, 0, 10),
         };
-        var demoRow = new StackPanel { Orientation = Orientation.Horizontal };
+        // Wrapping layout: the description text takes the free space and wraps,
+        // the button never overflows even in a narrow window.
+        var demoRow = new DockPanel { LastChildFill = true };
+        var demoBtn = new Button
+        {
+            Content = demo is not null ? "Clear demo" : "Try the demo",
+            Padding = new Thickness(9, 3, 9, 3),
+            FontSize = 11,
+            Margin = new Thickness(12, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        demoBtn.Click += (_, _) => { if (demo is not null) ClearDemoSession(); else StartDemoSession(); };
+        DockPanel.SetDock(demoBtn, Dock.Right);
+        demoRow.Children.Add(demoBtn);
         demoRow.Children.Add(new TextBlock
         {
             Text = demo is not null
                 ? "Demo session active — sample data, nothing persisted."
                 : "Want to look around first? Load the bundled demo assembly — nothing is saved, and clearing it takes one click.",
+            TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = System.Windows.Media.Brushes.LightGray,
         });
-        var spacer = new System.Windows.Controls.Border { Width = 12 };
-        demoRow.Children.Add(spacer);
-        var demoBtn = new Button
-        {
-            Content = demo is not null ? "Clear demo" : "▶ Try the demo",
-            Padding = new Thickness(9, 3, 9, 3),
-            FontSize = 11,
-        };
-        demoBtn.Click += (_, _) => { if (demo is not null) ClearDemoSession(); else StartDemoSession(); };
-        demoRow.Children.Add(demoBtn);
+
         demoStrip.Child = demoRow;
         panel.Children.Add(demoStrip);
 
@@ -368,13 +438,6 @@ public partial class MainWindow : Window
         AddTab($"Matrix — {w.Name}", view);
     }
 
-    void OpenNotesTab(WatchedDll? w)
-    {
-        AddTab(w is null ? "Notes" : $"Notes — {w.Name}", new NotesView(w));
-    }
-
-    void UpdateIntelRail(PatchSummary? summary) => IntelPanelBuilder.Build(IntelRail, summary);
-
     // ---------------- rail actions ----------------
 
     WatchedDll? SelectedWatch => WatchedList.SelectedItem as WatchedDll;
@@ -403,11 +466,6 @@ public partial class MainWindow : Window
         OpenHistoryTab(w);
     }
 
-    void OnOpenNotes(object sender, RoutedEventArgs e)
-    {
-        var w = SelectedWatch;
-        OpenNotesTab(w);
-    }
 
     void OnExportSources(object sender, RoutedEventArgs e)
     {
@@ -441,6 +499,12 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(report) { UseShellExecute = true });
     }
 
+    void OnWatchSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Assembly actions are meaningless without a selection — keep them visibly disabled.
+        AssemblyActions.IsEnabled = SelectedWatch is not null;
+    }
+
     void OnWatchDoubleClicked(object sender, MouseButtonEventArgs e)
     {
         if ((e.OriginalSource as FrameworkElement)?.DataContext is WatchedDll w)
@@ -454,6 +518,13 @@ public partial class MainWindow : Window
         string.Concat(fullName.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_')) + ".cs";
 
     // ---------------- watch management ----------------
+
+    void OnClearTimeline(object sender, RoutedEventArgs e)
+    {
+        Timeline.Clear();
+        UpdateFooter();
+        AddLog("Timeline cleared.");
+    }
 
     void OnAddDll(object sender, RoutedEventArgs e)
     {
@@ -548,7 +619,9 @@ public partial class MainWindow : Window
 
     void OnReloadAllExecuted(object? sender, ExecutedRoutedEventArgs? e) => OnReloadAll(sender, e);
 
-    void OnCompareTwo(object sender, RoutedEventArgs e)
+    void OnCompareTwo(object sender, RoutedEventArgs e) => _ = CompareTwoFlowAsync();
+
+    async Task CompareTwoFlowAsync()
     {
         var dlg = new OpenFileDialog { Title = "OLD version of the DLL", Filter = "Assemblies (*.dll;*.exe)|*.dll;*.exe" };
         if (dlg.ShowDialog(this) != true)
@@ -559,7 +632,7 @@ public partial class MainWindow : Window
             return;
 
         AddLog("Comparing…");
-        var diff = _mgr.CompareTwoAsync(oldPath, dlg.FileName).GetAwaiter().GetResult();
+        var diff = await _mgr.CompareTwoAsync(oldPath, dlg.FileName);
         if (diff is null)
             return;
         if (diff.HasChanges)
@@ -592,62 +665,63 @@ public partial class MainWindow : Window
     {
         _mgr.PollInterval = TimeSpan.FromSeconds(Math.Max(2, _settings.PollSeconds));
         _mgr.ArchiveKeep = _settings.ArchiveKeep;
+        _mgr.UpdatePollInterval();
     }
 
     void OnCheckForUpdates(object sender, RoutedEventArgs e)
     {
         AddLog("Checking for updates…");
-        try
+        var updater = new UpdaterService();
+        var release = updater.GetLatestReleaseAsync().GetAwaiter().GetResult();
+        if (release is null)
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("PatchDiff");
-            var json = http.GetStringAsync("https://api.github.com/repos/Tester12-SR-24/PatchDiff/releases/latest").GetAwaiter().GetResult();
-            using var doc = JsonDocument.Parse(json);
-            var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
-            var url = doc.RootElement.GetProperty("html_url").GetString() ?? "";
-            var local = Version.TryParse(CurrentVersion(), out var lv) ? lv : null;
-            var remote = Version.TryParse(tag.TrimStart('v'), out var rv) ? rv : null;
-            if (remote is not null && local is not null && remote > local)
-            {
-                if (MessageBox.Show(this,
-                        $"PatchDiff {remote} is available (you have {local.ToString(3)}).\n\nOpen the releases page?",
-                        "Update available", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
-                    Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-                AddLog($"Update available: {tag}.");
-            }
-            else
-            {
-                MessageBox.Show(this, "PatchDiff is up to date.", "Check for updates", MessageBoxButton.OK, MessageBoxImage.Information);
-                AddLog("Up to date.");
-            }
+            AddLog("Could not reach the releases feed (offline, private repo without credentials, or no releases yet).");
+            MessageBox.Show(this,
+                "Could not check for updates.\n\nThe releases feed was unreachable (offline, private repository without credentials, or no releases published yet).",
+                "Check for updates", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
         }
-        catch (Exception ex)
-        {
-            AddLog($"Update check failed: {ex.Message}");
-        }
-    }
 
-    public static string CurrentVersion()
-    {
-        try
+        if (!UpdaterService.IsNewer(release))
         {
-            var fv = FileVersionInfo.GetVersionInfo(Environment.ProcessPath!);
-            var v = fv.ProductVersion;
-            if (string.IsNullOrEmpty(v))
-                v = fv.FileVersion;
-            if (string.IsNullOrEmpty(v))
-                v = typeof(MainWindow).Assembly.GetName().Version?.ToString(3);
-            return v ?? "?";
+            MessageBox.Show(this,
+                $"PatchDiff is up to date.\n\nLatest release: {release.Tag} ({release.Name})\n\nYou are running: {UpdaterService.CurrentVersion()}",
+                "Check for updates", MessageBoxButton.OK, MessageBoxImage.Information);
+            AddLog($"Up to date (latest release: {release.Tag}).");
+            return;
         }
-        catch
-        {
-            return typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "?";
-        }
-    }
 
+        var choice = MessageBox.Show(this,
+            $"PatchDiff {release.Tag} is available ({release.Name}).\n\n" +
+            $"You are running: {UpdaterService.CurrentVersion()}."+"\n\n" +
+            "Download and install it now? PatchDiff will close, update itself, and restart."+"\n\n" +
+            "(Snapshots, reports and settings are not touched by the update.)",
+            "Update available", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        AddLog($"Update available: {release.Tag}.");
+        if (choice != MessageBoxResult.Yes)
+        {
+            Process.Start(new ProcessStartInfo(release.PageUrl) { UseShellExecute = true });
+            return;
+        }
+
+        var staging = updater.DownloadAndStageAsync(release,
+            msg => Dispatcher.BeginInvoke(() => AddLog(msg))).GetAwaiter().GetResult();
+        if (staging is null)
+        {
+            AddLog("Update download failed — details in the updater log.");
+            MessageBox.Show(this,
+                "The update could not be downloaded or extracted.\nDetails were written to the updater log under the data folder.",
+                "Update failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        AddLog("Update staged — applying on exit…");
+        updater.LaunchApplyAfterExit(staging);
+        Application.Current.Shutdown();
+    }
     void OnAbout(object sender, RoutedEventArgs e)
         => MessageBox.Show(this,
-            $"PatchDiff {CurrentVersion()}\n\nWatch .NET/Unity DLLs; decompile with the ILSpy engine; diff, report, repeat.\n\nLicensed under the WTFPL.",
+            $"PatchDiff {UpdaterService.CurrentVersion()}\n\nWatch .NET/Unity DLLs; decompile with the ILSpy engine; diff, report, repeat.\n\nLicensed under the WTFPL.",
             "About PatchDiff", MessageBoxButton.OK, MessageBoxImage.Information);
 
     // ---------------- drag & drop ----------------
@@ -741,6 +815,9 @@ public partial class MainWindow : Window
 
         if (ct.IsCancellationRequested)
             return;
+        // the query may have changed (or shrunk) while the search was running
+        if (SearchBox.Text.Trim() != query || query.Length < 2)
+            return;
         SearchResults.ItemsSource = results;
         if (results.Count > 0)
         {
@@ -808,8 +885,14 @@ public partial class MainWindow : Window
     {
         _settings = SettingsFile.Load();
         ApplySettings();
-        foreach (var p in _settings.Watched.Where(File.Exists))
+        // Keep entries whose file is temporarily missing (unmounted drive etc.) so the
+        // watch list is never silently truncated — the watch shows MISSING status.
+        foreach (var p in _settings.Watched)
+        {
+            if (!File.Exists(p))
+                AddLog($"Watch skipped (file not found): {p}");
             _mgr.Add(p);
+        }
         LoadUiState();
     }
 
@@ -977,11 +1060,11 @@ public partial class MainWindow : Window
 
     void OnToggleAutoStart(object? sender, RoutedEventArgs? e)
     {
+        // Sync the tray checkbox, then ALWAYS fall through to the registry write.
+        // (An early return here made the File-menu path a no-op: the menu click sets
+        // IsChecked, the tray sync ran, and the registry write never happened.)
         if (_trayAutoStartItem is not null && _trayAutoStartItem.Checked != AutoStartItem.IsChecked)
-        {
             _trayAutoStartItem.Checked = AutoStartItem.IsChecked;
-            return;
-        }
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true);
