@@ -36,10 +36,10 @@ public sealed class UpdaterService
         try
         {
             using var req = NewRequest(HttpMethod.Get, $"https://api.github.com/repos/{Repo}/releases/latest");
-            using var resp = await _http.SendAsync(req, ct);
+            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
                 return null;
-            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
             var root = doc.RootElement;
             var tag = root.GetProperty("tag_name").GetString() ?? "";
             if (tag.Length == 0)
@@ -112,20 +112,20 @@ public sealed class UpdaterService
             progress?.Invoke("Downloading " + AppAssetName + "…");
             using var req = NewRequest(HttpMethod.Get, release.AssetUrl);
             req.Headers.Accept.ParseAdd("application/octet-stream");
-            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode)
                 return null;
 
             var zipPath = Path.Combine(Path.GetTempPath(), "patchdiff-update.zip");
-            await using (var src = await resp.Content.ReadAsStreamAsync(ct))
+            await using (var src = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
             await using (var dst = File.Create(zipPath))
             {
                 var buffer = new byte[1 << 16];
                 long total = resp.Content.Headers.ContentLength ?? -1, done = 0;
                 int read;
-                while ((read = await src.ReadAsync(buffer, ct)) > 0)
+                while ((read = await src.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
                 {
-                    await dst.WriteAsync(buffer.AsMemory(0, read), ct);
+                    await dst.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                     done += read;
                     if (total > 0)
                         progress?.Invoke($"Downloading… {done * 100 / total}%");
