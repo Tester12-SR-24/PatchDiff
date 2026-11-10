@@ -8,25 +8,18 @@ Decompiles with the ILSpy engine · snapshot baselines · automatic patch detect
 revision archive with history, labels and a diff matrix · decompiled source browser ·
 HTML diff reports · built-in updater · GUI and CLI for **Windows**.
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│   release   v1.0.0        platform   Windows x64        │
-│   runtime   .NET 8        license    WTFPL v2          │
-│   engine    ILSpy         diff       DiffPlex          │
-└─────────────────────────────────────────────────────────┘
-```
+| | |
+|:--|:--|
+| **Release** | `v1.1.0` |
+| **Platform** | Windows x64 (WPF) |
+| **Runtime** | .NET 8 — self-contained, no install needed |
+| **Engine** | ILSpy (`ICSharpCode.Decompiler`) |
+| **Diff** | DiffPlex, line-level side-by-side |
+| **License** | WTFPL v2 |
 
 *Licensed under the [WTFPL](#license) — do what the fuck you want to.*
 
 </div>
-
----
-
-## 📸 Screenshots
-
-<img src="assets/screenshots/watching.png" alt="PatchDiff watching a DLL — rail, status pills and timeline" width="100%">
-
-<img src="assets/screenshots/onboarding.png" alt="PatchDiff welcome screen with demo mode" width="100%">
 
 ---
 
@@ -222,12 +215,12 @@ flowchart LR
 
 ```text
 %LOCALAPPDATA%\PatchDiff
-├── Snapshots\        decompiled baseline per watched DLL
-├── Reports\          self-contained HTML diff reports
-├── Revisions\        manifest per archived revision (SHA, version, timestamp, types)
-├── Archive\          original DLL bytes per revision
-├── Logs\             crash + updater logs
-└── SettingsFile.json settings (poll interval, start-minimized, retention…)
+├── Snapshots            decompiled baseline per watched DLL
+├── Reports              self-contained HTML diff reports
+├── Revisions            manifest per revision (SHA, version, timestamp, types)
+├── Archive              original DLL bytes per revision
+├── Logs                 crash + updater logs
+└── SettingsFile.json    settings (poll interval, start-minimized, retention…)
 ```
 
 Set the `PATCHDIFF_DATA_DIR` environment variable to redirect the entire data root anywhere
