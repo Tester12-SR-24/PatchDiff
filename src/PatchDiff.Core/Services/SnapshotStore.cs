@@ -109,22 +109,6 @@ td.same{background:#fff}
         sb.Append("</style></head><body>");
         sb.Append($"<h2>{Escape(diff.Title)}</h2>");
         sb.Append($"<p class=\"summary\">+{diff.Added} added &nbsp; −{diff.Removed} removed &nbsp; ~{diff.Modified} modified</p>");
-        if (diff.Intelligence is { } intel)
-        {
-            if (intel.PlainTerms.Count > 0)
-            {
-                sb.Append("<p class=\"summary\"><b>In plain terms:</b><br>");
-                foreach (var term in intel.PlainTerms)
-                    sb.Append("• " + Escape(term) + "<br>");
-                sb.Append("</p>");
-            }
-            if (intel.Numbers.Count > 0)
-            {
-                sb.Append("<p class=\"summary\"><b>Number changes ({0}):</b></p>".Replace("{0}", intel.Numbers.Count.ToString()));
-                foreach (var n in intel.Numbers.Take(20))
-                    sb.Append($"<p class=\"summary\" style=\"margin:2px 0\"><span class=\"mono\">{Escape(n.Type)}.{Escape(n.Member)}</span> &nbsp;{Escape(n.OldText)} → {Escape(n.NewText)} <b>{Escape(n.Direction)} {Math.Abs(n.PercentDelta):0.#}%</b></p>");
-            }
-        }
         sb.Append("<p class=\"toolbar\"><button onclick=\"document.querySelectorAll('details.type').forEach(d=>d.open=true)\">Expand all</button>"
                   + "<button onclick=\"document.querySelectorAll('details.type').forEach(d=>d.open=false)\">Collapse all</button></p>");
 

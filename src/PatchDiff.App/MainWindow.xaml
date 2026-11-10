@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:PatchDiff"
+        xmlns:ctl="clr-namespace:PatchDiff"
         Title="PatchDiff — watching your assemblies"
         Icon="icon.ico"
         Width="1280" Height="800"
@@ -80,8 +81,6 @@
                     <ColumnDefinition Width="270"/>
                     <ColumnDefinition Width="4"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="4"/>
-                    <ColumnDefinition Width="290"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- left rail -->
@@ -104,9 +103,24 @@
                         </TextBlock>
                     </Grid>
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Content="➕ Add DLL" Click="OnAddDll" Padding="8,3" FontSize="11" Style="{StaticResource AccentButton}"/>
-                        <Button Content="📂 Folder…" Click="OnAddFolder" Padding="8,3" FontSize="11"/>
-                        <Button Content="⚙" Click="OnSettings" Padding="8,3" FontSize="11" ToolTip="Settings"/>
+                        <Button Click="OnAddDll" ToolTip="Add a DLL to watch" Style="{StaticResource AccentButton}" ctl:IconGlyph.Geometry="{StaticResource IconAdd}">
+<StackPanel Orientation="Horizontal">
+
+<TextBlock Text="Add DLL" VerticalAlignment="Center"/>
+</StackPanel>
+</Button>
+                        <Button Click="OnAddFolder" ToolTip="Add every DLL in a folder" ctl:IconGlyph.Geometry="{StaticResource IconFolder}">
+<StackPanel Orientation="Horizontal">
+
+<TextBlock Text="Folder…" VerticalAlignment="Center"/>
+</StackPanel>
+</Button>
+                        <Button Click="OnSettings" ToolTip="Settings" ctl:IconGlyph.Geometry="{StaticResource IconSettings}">
+<StackPanel Orientation="Horizontal">
+
+<TextBlock Text="Settings" VerticalAlignment="Center"/>
+</StackPanel>
+</Button>
                     </StackPanel>
                     <TextBlock DockPanel.Dock="Top" Text="WATCHED ASSEMBLIES" Style="{StaticResource SectionHeader}"/>
                     <ListBox x:Name="WatchedList" DockPanel.Dock="Top" MaxHeight="200"
@@ -126,14 +140,19 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
                     <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,0">
-                        <Button Content="↻ Re-check" Click="OnRecheck" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
-                        <Button Content="Diff" Click="OnOpenDiff" Padding="7,3" FontSize="11" ToolTip="Open the latest diff" Margin="0,0,6,4"/>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconRecheck}" Content="Re-check" Click="OnRecheck" Padding="7,3" FontSize="11" ToolTip="Re-check the selected assembly" Margin="0,0,6,4"/>
+                        <Button Click="OnOpenDiff" ToolTip="Open the latest diff" ctl:IconGlyph.Geometry="{StaticResource IconDiff}">
+<StackPanel Orientation="Horizontal">
+
+<TextBlock Text="Diff" VerticalAlignment="Center"/>
+</StackPanel>
+</Button>
                         <Button Content="Browse" Click="OnBrowse" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
-                        <Button Content="History" Click="OnHistory" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
-                        <Button Content="Notes" Click="OnOpenNotes" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
-                        <Button Content="Sources" Click="OnExportSources" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
-                        <Button Content="Report" Click="OnOpenReport" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
-                        <Button Content="🗑 Remove" Click="OnRemoveWatch" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
+                        <Button Content="History" Click="OnHistory" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconHistory}"/>
+
+                        <Button Content="Sources" Click="OnExportSources" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconSources}"/>
+                        <Button Content="Report" Click="OnOpenReport" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconReport}"/>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconRemove}" Content="Remove" Click="OnRemoveWatch" Padding="7,3" FontSize="11" ToolTip="Stop watching the selected assembly and delete its baseline" Margin="0,0,6,4"/>
                         <Button Content="× All" Click="OnRemoveAll" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
                     </WrapPanel>
                     <TextBlock DockPanel.Dock="Top" Text="TIMELINE" Style="{StaticResource SectionHeader}"/>
@@ -196,15 +215,8 @@
                     </TabControl>
                 </DockPanel>
 
-                <GridSplitter Grid.Column="3" Background="Transparent" VerticalAlignment="Stretch" HorizontalAlignment="Left" Width="4"/>
-
                 <!-- intel rail -->
-                <DockPanel Grid.Column="4" Margin="0,8,10,0">
-                    <TextBlock DockPanel.Dock="Top" Text="🧠 PATCH INTELLIGENCE" Style="{StaticResource SectionHeader}"/>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="IntelRail"/>
-                    </ScrollViewer>
-                </DockPanel>
+                
             </Grid>
 
             <!-- footer -->

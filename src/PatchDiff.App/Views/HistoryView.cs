@@ -90,8 +90,7 @@ public partial class HistoryView : UserControl
 
             var diff = new DiffService().Compare(oldSnap, newSnap,
                 title: $"{Path.GetFileName(_watch.Path)} ({oldSnap.AssemblyVersion} → {newSnap.AssemblyVersion})");
-            diff.Intelligence = DiffIntelligence.Analyze(diff);
-
+    
             if (diff.HasChanges)
                 DiffRequested?.Invoke(diff);
             else

@@ -77,7 +77,6 @@ public partial class MainWindow : Window
             AddEvent("patched", "GAME PATCHED",
                 $"{w.Name} rewritten on disk → auto-diff completed ({diff.Added + diff.Removed + diff.Modified} type changes) → report saved");
             OpenDiffTab(w, diff);
-            UpdateIntelRail(diff.Intelligence);
             UpdateFooter();
             if (_settings.BalloonOnPatch)
             {
@@ -372,13 +371,6 @@ public partial class MainWindow : Window
         AddTab($"Matrix — {w.Name}", view);
     }
 
-    void OpenNotesTab(WatchedDll? w)
-    {
-        AddTab(w is null ? "Notes" : $"Notes — {w.Name}", new NotesView(w));
-    }
-
-    void UpdateIntelRail(PatchSummary? summary) => IntelPanelBuilder.Build(IntelRail, summary);
-
     // ---------------- rail actions ----------------
 
     WatchedDll? SelectedWatch => WatchedList.SelectedItem as WatchedDll;
@@ -407,11 +399,6 @@ public partial class MainWindow : Window
         OpenHistoryTab(w);
     }
 
-    void OnOpenNotes(object sender, RoutedEventArgs e)
-    {
-        var w = SelectedWatch;
-        OpenNotesTab(w);
-    }
 
     void OnExportSources(object sender, RoutedEventArgs e)
     {

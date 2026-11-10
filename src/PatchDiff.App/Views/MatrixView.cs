@@ -199,7 +199,6 @@ public partial class MatrixView : UserControl
                 var d = new DiffService().Compare(a.Snapshot, b.Snapshot,
                     title: "{a} \u2192 {b}".Replace("{a}", Path.GetFileName(_watch.Path) + ": " + a.Label)
                                           .Replace("{b}", b.Label));
-                d.Intelligence = DiffIntelligence.Analyze(d);
                 return d;
             });
 

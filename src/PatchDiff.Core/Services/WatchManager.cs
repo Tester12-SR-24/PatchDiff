@@ -156,7 +156,6 @@ public sealed class WatchManager : IDisposable
                 var newSnap = _decompiler.Build(newPath, Report);
                 var oldSnap = _decompiler.Build(oldPath);
                 var diff = _diff.Compare(oldSnap, newSnap, title: $"{Path.GetFileName(oldPath)} → {Path.GetFileName(newPath)}");
-                diff.Intelligence = DiffIntelligence.Analyze(diff);
                 if (diff.HasChanges)
                 {
                     var report = SnapshotStore.WriteHtmlReport(diff);
@@ -282,7 +281,6 @@ public sealed class WatchManager : IDisposable
                     w.Meta1 = $"v{demoSnap.AssemblyVersion} · {demoSnap.Types.Count} types";
                     w.ShaShort = sha;
                     var demoDiff = _diff.Compare(baseline, demoSnap);
-                    demoDiff.Intelligence = DiffIntelligence.Analyze(demoDiff);
                     _demoBaselines[w.Path] = demoSnap;
                     if (demoDiff.HasChanges)
                     {
@@ -369,7 +367,6 @@ public sealed class WatchManager : IDisposable
             }
 
             var diff = _diff.Compare(oldSnap, newSnap);
-            diff.Intelligence = DiffIntelligence.Analyze(diff);
             _revisions.Append(newSnap, newBytes, ArchiveKeep);
             SnapshotStore.Save(newSnap);
 
