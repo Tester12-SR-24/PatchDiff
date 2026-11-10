@@ -23,7 +23,7 @@
     <Geometry x:Key="IconRemoveAll">M3,8 H17 M7.5,8 V6.5 C7.5,6 7.9,5.5 8.5,5.5 H11.5 C12.1,5.5 12.5,6 12.5,6.5 V8 M5,8 L5.5,19 C5.6,19.6 5.9,20 6.5,20 H13.5 C14.1,20 14.4,19.6 14.5,19 L15,8 M8,11 V17 M12,11 V17 M17.2,14.2 L21.8,18.8 M21.8,14.2 L17.2,18.8</Geometry>
     <Geometry x:Key="IconReports">M7,3 H14 L18,7 V21 H7 Z M14,3 V7 H18 M10,12 H14 M10,16 H14</Geometry>
     <Geometry x:Key="IconReport">M6,3 H15 L19,7 V21 H6 Z M15,3 V7 H19 M9,17 V12 M12,17 V9 M15.5,17 V13.5</Geometry>
-    <Geometry x:Key="IconSettings">M12,8.5 A3.5,3.5 0 1,0 12,15.5 A3.5,3.5 0 1,0 12,8.5 M12,2.5 V5 M12,19 V21.5 M2.5,12 H5 M19,12 H21.5 M5.3,5.3 L7,7 M17,17 L18.7,18.7 M18.7,5.3 L17,7 M7,17 L5.3,18.7</Geometry>
+    <Geometry x:Key="IconSettings">M4,7 H20 M4,12 H20 M4,17 H20 M9,5.2 A1.8,1.8 0 1,0 9,8.8 A1.8,1.8 0 1,0 9,5.2 M15,10.2 A1.8,1.8 0 1,0 15,13.8 A1.8,1.8 0 1,0 15,10.2 M8,15.2 A1.8,1.8 0 1,0 8,18.8 A1.8,1.8 0 1,0 8,15.2</Geometry>
     <Geometry x:Key="IconSearch">M10.5,4 A6.5,6.5 0 1,0 10.5,17 A6.5,6.5 0 1,0 10.5,4 M15.5,15.5 L21,21</Geometry>
     <Geometry x:Key="IconDiff">M12,3 V21 M6,8 H10 M8,6 V10 M14,16 H18</Geometry>
     <Geometry x:Key="IconBrowse">M5,4 V20 M5,6 H10 M5,16 H10 M10,4 H19 V8 H10 Z M10,14 H20 V18 H10 Z</Geometry>
