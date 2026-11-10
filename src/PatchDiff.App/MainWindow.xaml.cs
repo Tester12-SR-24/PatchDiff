@@ -593,11 +593,25 @@ public partial class MainWindow : Window
         _mgr.UpdatePollInterval();
     }
 
-    void OnCheckForUpdates(object sender, RoutedEventArgs e)
+    async void OnCheckForUpdates(object sender, RoutedEventArgs e)
     {
+        // NEVER block the dispatcher here: sync-over-async (GetAwaiter().GetResult())
+        // deadlocks because the updater's continuations need the UI thread we froze.
+        // This used to hang the whole app on the first click.
         AddLog("Checking for updates…");
         var updater = new UpdaterService();
-        var release = updater.GetLatestReleaseAsync().GetAwaiter().GetResult();
+        ReleaseInfo? release;
+        try
+        {
+            release = await updater.GetLatestReleaseAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Update check failed: {ex.Message}");
+            MessageBox.Show(this, "Could not check for updates." + Environment.NewLine + Environment.NewLine + ex.Message,
+                "Check for updates", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         if (release is null)
         {
             AddLog("Could not reach the releases feed (offline, private repo without credentials, or no releases yet).");
@@ -629,8 +643,19 @@ public partial class MainWindow : Window
             return;
         }
 
-        var staging = updater.DownloadAndStageAsync(release,
-            msg => Dispatcher.BeginInvoke(() => AddLog(msg))).GetAwaiter().GetResult();
+        string? staging;
+        try
+        {
+            staging = await updater.DownloadAndStageAsync(release,
+                msg => Dispatcher.BeginInvoke(() => AddLog(msg))).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Update download failed: {ex.Message}");
+            MessageBox.Show(this, "The update could not be downloaded." + Environment.NewLine + Environment.NewLine + ex.Message,
+                "Update failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         if (staging is null)
         {
             AddLog("Update download failed — details in the updater log.");
