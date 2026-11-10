@@ -104,21 +104,16 @@
                         </TextBlock>
                     </Grid>
                     <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Click="OnAddDll" ToolTip="Add a DLL to watch" Style="{StaticResource AccentButton}" ctl:IconGlyph.Geometry="{StaticResource IconAdd}">
-                            <TextBlock Text="Add DLL" VerticalAlignment="Center"/>
-                        </Button>
-                        <Button Click="OnAddFolder" ToolTip="Add every DLL in a folder" ctl:IconGlyph.Geometry="{StaticResource IconFolder}">
-                            <TextBlock Text="Folder…" VerticalAlignment="Center"/>
-                        </Button>
-                        <Button Click="OnSettings" ToolTip="Settings" ctl:IconGlyph.Geometry="{StaticResource IconSettings}">
-                            <TextBlock Text="Settings" VerticalAlignment="Center"/>
-                        </Button>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconAdd}" Content="Add DLL" Click="OnAddDll" Style="{StaticResource AccentButton}" Padding="7,3" FontSize="11" Margin="0,0,6,4" ToolTip="Add a DLL to watch"/>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconFolder}" Content="Folder…" Click="OnAddFolder" Padding="7,3" FontSize="11" Margin="0,0,6,4" ToolTip="Add every DLL in a folder"/>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconSettings}" Content="Settings" Click="OnSettings" Padding="7,3" FontSize="11" Margin="0,0,6,4" ToolTip="Settings"/>
                     </WrapPanel>
                     <TextBlock DockPanel.Dock="Top" Text="WATCHED ASSEMBLIES" Style="{StaticResource SectionHeader}"/>
                     <ListBox x:Name="WatchedList" DockPanel.Dock="Top" MaxHeight="200"
                              BorderThickness="0" Background="Transparent"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             MouseDoubleClick="OnWatchDoubleClicked">
+                             MouseDoubleClick="OnWatchDoubleClicked"
+                             SelectionChanged="OnWatchSelectionChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Margin="2" Orientation="Horizontal">
@@ -131,26 +126,287 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,0">
-                        <Button ctl:IconGlyph.Geometry="{StaticResource IconRecheck}" Content="Re-check" Click="OnRecheck" Padding="7,3" FontSize="11" ToolTip="Re-check the selected assembly" Margin="0,0,6,4"/>
-                        <Button Click="OnOpenDiff" ToolTip="Open the latest diff" ctl:IconGlyph.Geometry="{StaticResource IconDiff}"><TextBlock Text="Diff" VerticalAlignment="Center"/></Button>
-                        <Button Content="Browse" Click="OnBrowse" Padding="7,3" FontSize="11" Margin="0,0,6,4"/>
-                        <Button Content="History" Click="OnHistory" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconHistory}"/>
-
-                        <Button Content="Sources" Click="OnExportSources" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconSources}"/>
-                        <Button Content="Report" Click="OnOpenReport" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconReport}"/>
-                        <Button ctl:IconGlyph.Geometry="{StaticResource IconRemove}" Content="Remove" Click="OnRemoveWatch" Padding="7,3" FontSize="11" ToolTip="Stop watching the selected assembly and delete its baseline" Margin="0,0,6,4"/>
-                        <Button Content="× All" Click="OnRemoveAll" Padding="7,3" FontSize="11" Margin="0,0,6,4" ctl:IconGlyph.Geometry="{StaticResource IconRemoveAll}"/>
-                    </WrapPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="TIMELINE" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock DockPanel.Dock="Top" Text="SELECTED ASSEMBLY" Style="{StaticResource SectionHeader}"/>
+                    <UniformGrid x:Name="AssemblyActions" DockPanel.Dock="Top" Columns="2" Margin="0,0,4,6" IsEnabled="False">
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconBrowse}" Content="Browse" Click="OnBrowse" Margin="0,0,4,4" Padding="4,6" FontSize="10.5" ToolTip="Explore types and source">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}" MinHeight="50">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}" StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="{TemplateBinding Content}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.35"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1c1c20"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2b2b31"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconDiff}" Content="Diff" Click="OnOpenDiff" Margin="0,0,4,4" Padding="4,6" FontSize="10.5" ToolTip="Latest diff">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}" MinHeight="50">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}" StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="{TemplateBinding Content}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.35"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1c1c20"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2b2b31"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconHistory}" Content="History" Click="OnHistory" Margin="0,0,4,4" Padding="4,6" FontSize="10.5" ToolTip="Revisions + matrix">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}" MinHeight="50">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}" StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="{TemplateBinding Content}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.35"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1c1c20"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2b2b31"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconSources}" Content="Sources" Click="OnExportSources" Margin="0,0,4,4" Padding="4,6" FontSize="10.5" ToolTip="Export .cs files">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}" MinHeight="50">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}" StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="{TemplateBinding Content}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.35"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1c1c20"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2b2b31"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconReport}" Content="Report" Click="OnOpenReport" Margin="0,0,4,4" Padding="4,6" FontSize="10.5" ToolTip="HTML report">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}" MinHeight="50">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}" StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="{TemplateBinding Content}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.35"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1c1c20"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2b2b31"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconRecheck}" Content="Re-check" Click="OnRecheck" Margin="0,0,4,4" Padding="4,6" FontSize="10.5" ToolTip="Re-check now">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}" MinHeight="50">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}" StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="{TemplateBinding Content}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.35"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1c1c20"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2b2b31"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconRemove}" Content="Remove" Click="OnRemoveWatch" Margin="0,0,4,4" Padding="4,6" FontSize="10.5" ToolTip="Stop watching">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}" MinHeight="50">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}" StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="{TemplateBinding Content}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.35"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1c1c20"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2b2b31"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                        <Button ctl:IconGlyph.Geometry="{StaticResource IconRemoveAll}" Content="× All" Click="OnRemoveAll" Margin="0,0,4,4" Padding="4,6" FontSize="10.5" ToolTip="Stop watching all">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="1" CornerRadius="7" Padding="{TemplateBinding Padding}" MinHeight="50">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
+                                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}" StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="{TemplateBinding Content}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter Property="Opacity" Value="0.35"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="#1c1c20"/>
+                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#2b2b31"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </UniformGrid>
+                    <DockPanel DockPanel.Dock="Top" LastChildFill="False" Margin="0,10,8,4">
+                        <TextBlock Text="TIMELINE" Style="{StaticResource SectionHeader}" Margin="2,0,0,0" VerticalAlignment="Center"/>
+                        <Button DockPanel.Dock="Right" Content="Clear" Click="OnClearTimeline" Padding="7,2" FontSize="10" ToolTip="Clear the timeline"/>
+                    </DockPanel>
                     <ListBox x:Name="TimelineList" BorderThickness="0" Background="Transparent"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Margin="0,5">
-                                    <TextBlock Text="{Binding When}" FontSize="10" Foreground="#8a8a95"/>
-                                    <TextBlock Text="{Binding Message}" FontSize="11.5" TextWrapping="Wrap" Margin="0,1,0,0"/>
-                                </StackPanel>
+                                <Grid Margin="0,1,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- timeline dot -->
+                                    <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Top"
+                                             Margin="1,5,0,0">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="#6f6f79"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Kind}" Value="patched">
+                                                        <Setter Property="Fill" Value="#e0a83a"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Kind}" Value="baseline">
+                                                        <Setter Property="Fill" Value="#4caf6a"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Kind}" Value="info">
+                                                        <Setter Property="Fill" Value="#4a76c8"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <StackPanel Grid.Column="1" Margin="0,0,0,0">
+                                        <DockPanel LastChildFill="True">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding When}" FontSize="9.5"
+                                                       Foreground="#6f6f79" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                            <TextBlock Text="{Binding Badge}" FontSize="9" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#8a8a95"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="patched">
+                                                                <Setter Property="Foreground" Value="#e0a83a"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="baseline">
+                                                                <Setter Property="Foreground" Value="#6ccb87"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="info">
+                                                                <Setter Property="Foreground" Value="#7fa8e8"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding Message}" FontSize="10.5" Foreground="#c3c8d2"
+                                                   TextWrapping="Wrap" MaxHeight="30" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Message}" Margin="0,1,0,2"/>
+                                    </StackPanel>
+                                </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
@@ -188,7 +444,7 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="{Binding Header}" Margin="2,0,8,0"/>
-                                    <Button Content="✕" FontSize="9" Padding="3,0" Background="Transparent"
+                                    <Button Content="" FontSize="9" Padding="3,0" Background="Transparent" ctl:IconGlyph.Geometry="{StaticResource IconClose}"
                                             Foreground="#9a9aa9" BorderThickness="0" Cursor="Hand"
                                             Command="{Binding CloseCommand}"
                                             Visibility="{Binding IsClosable, Converter={StaticResource BoolToVisibility}}"/>

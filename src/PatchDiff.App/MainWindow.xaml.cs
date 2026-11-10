@@ -252,7 +252,7 @@ public partial class MainWindow : Window
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal };
         var watchReal = new Button
         {
-            Content = IconContent("IconFolder", "Watch a real DLL…"),
+            Content = "Watch a real DLL…",
             Padding = new Thickness(10, 5, 10, 5),
             Style = (Style)FindResource("AccentButton"),
         };
@@ -261,7 +261,7 @@ public partial class MainWindow : Window
         buttons.Children.Add(watchReal);
         var watchFolder = new Button
         {
-            Content = IconContent("IconFolder", "Watch a whole folder…"),
+            Content = "Watch a whole folder…",
             Padding = new Thickness(10, 5, 10, 5),
         };
         IconGlyph.SetGeometry(watchFolder, (System.Windows.Media.Geometry?)FindResource("IconFolder"));
@@ -269,7 +269,7 @@ public partial class MainWindow : Window
         buttons.Children.Add(watchFolder);
         var compareBtn = new Button
         {
-            Content = IconContent("IconCompare", "Compare two DLLs…"),
+            Content = "Compare two DLLs…",
             Padding = new Thickness(10, 5, 10, 5),
         };
         IconGlyph.SetGeometry(compareBtn, (System.Windows.Media.Geometry?)FindResource("IconCompare"));
@@ -294,7 +294,7 @@ public partial class MainWindow : Window
         var demoRow = new DockPanel { LastChildFill = true };
         var demoBtn = new Button
         {
-            Content = demo is not null ? IconContent("IconClose", "Clear demo") : IconContent("IconOpenExternal", "Try the demo"),
+            Content = demo is not null ? "Clear demo" : "Try the demo",
             Padding = new Thickness(9, 3, 9, 3),
             FontSize = 11,
             Margin = new Thickness(12, 0, 0, 0),
@@ -476,6 +476,12 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(report) { UseShellExecute = true });
     }
 
+    void OnWatchSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // Assembly actions are meaningless without a selection — keep them visibly disabled.
+        AssemblyActions.IsEnabled = SelectedWatch is not null;
+    }
+
     void OnWatchDoubleClicked(object sender, MouseButtonEventArgs e)
     {
         if ((e.OriginalSource as FrameworkElement)?.DataContext is WatchedDll w)
@@ -489,6 +495,13 @@ public partial class MainWindow : Window
         string.Concat(fullName.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_')) + ".cs";
 
     // ---------------- watch management ----------------
+
+    void OnClearTimeline(object sender, RoutedEventArgs e)
+    {
+        Timeline.Clear();
+        UpdateFooter();
+        AddLog("Timeline cleared.");
+    }
 
     void OnAddDll(object sender, RoutedEventArgs e)
     {
