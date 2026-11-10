@@ -69,7 +69,6 @@ public sealed class WatchedDll : System.ComponentModel.INotifyPropertyChanged
 
     public string LastReportPath { get; set; } = "";
 
-    public bool IsDemo { get; set; }
 
     /// <summary>Debounce timer keyed per DLL (reset on every file-system event).</summary>
     public System.Timers.Timer? Debounce { get; set; }
@@ -91,7 +90,6 @@ public sealed class WatchManager : IDisposable
     readonly DecompilerService _decompiler = new();
     readonly DiffService _diff = new();
     readonly RevisionStore _revisions = new();
-    readonly Dictionary<string, AssemblySnapshot> _demoBaselines = new(StringComparer.OrdinalIgnoreCase);
     public int ArchiveKeep { get; set; } // 0 = keep all revisions
     readonly SemaphoreSlim _checkGate = new(1, 1);
 
@@ -104,12 +102,12 @@ public sealed class WatchManager : IDisposable
 
     WatchManager() { }
 
-    public void Add(string dllPath, bool isDemo = false)
+    public void Add(string dllPath)
     {
         if (Watched.Any(w => string.Equals(w.Path, dllPath, StringComparison.OrdinalIgnoreCase)))
             return;
 
-        var w = new WatchedDll { Path = System.IO.Path.GetFullPath(dllPath), IsDemo = isDemo };
+        var w = new WatchedDll { Path = System.IO.Path.GetFullPath(dllPath) };
         Watched.Add(w);
 
         StartWatcher(w);
@@ -125,8 +123,6 @@ public sealed class WatchManager : IDisposable
         w.Debounce?.Stop();
         w.Debounce?.Dispose();
         Watched.Remove(w);
-        if (w.IsDemo)
-            _demoBaselines.Remove(w.Path);
         if (purgeData)
         {
             try
@@ -265,65 +261,6 @@ public sealed class WatchManager : IDisposable
 
             if (!File.Exists(w.Path))
                 return; // file vanished between the read and now — the next poll/report surfaces it
-
-            // Demo sessions live entirely in memory: nothing is persisted,
-            // nothing is archived. Perfect for onboarding/sample data.
-            if (w.IsDemo)
-            {
-                if (_demoBaselines.TryGetValue(w.Path, out var baseline))
-                {
-                    if (baseline.Sha256 == sha)
-                    {
-                        w.Status = "Demo up to date";
-                        w.PillKind = "ok";
-                        w.PillText = "DEMO";
-                        return;
-                    }
-                    w.Status = "Analyzing demo…";
-                    w.PillKind = "busy";
-                    w.PillText = "DEMO";
-                    var (demoSnap, _) = _decompiler.BuildWithBytes(w.Path, (done, total) =>
-                        w.Status = $"Decompiling {done}/{total}…");
-                    if (demoSnap.Sha256 != sha)
-                    {
-                        Log("Demo file changed while analyzing — retrying on the next poll.");
-                        return;
-                    }
-                    w.Meta1 = $"v{demoSnap.AssemblyVersion} · {demoSnap.Types.Count} types";
-                    w.ShaShort = sha;
-                    var demoDiff = _diff.Compare(baseline, demoSnap);
-                    _demoBaselines[w.Path] = demoSnap;
-                    if (demoDiff.HasChanges)
-                    {
-                        Log($"Demo update: +{demoDiff.Added} added, −{demoDiff.Removed} removed, ~{demoDiff.Modified} modified (nothing persisted).");
-                        w.Status = $"Demo changed! +{demoDiff.Added} −{demoDiff.Removed} ~{demoDiff.Modified}";
-                        w.PillKind = "updated";
-                        w.PillText = "DEMO PATCH";
-                        DiffProduced?.Invoke(w, demoDiff);
-                    }
-                    else
-                    {
-                        Log("Demo changed on disk but decompiled API is identical.");
-                        w.Status = "Demo up to date";
-                    }
-                }
-                else
-                {
-                    w.Status = "Analyzing demo…";
-                    w.PillKind = "busy";
-                    w.PillText = "DEMO";
-                    var (demoSnap, _) = _decompiler.BuildWithBytes(w.Path, (done, total) =>
-                        w.Status = $"Decompiling {done}/{total}…");
-                    w.AssemblyVersion = demoSnap.AssemblyVersion;
-                    w.Meta1 = $"v{demoSnap.AssemblyVersion} · {demoSnap.Types.Count} types";
-                    w.ShaShort = sha;
-                    _demoBaselines[w.Path] = demoSnap;
-                    w.Status = "Demo baseline ready";
-                    w.PillKind = "baseline";
-                    w.PillText = "DEMO READY";
-                }
-                return;
-            }
 
             // Fast path: file identical to the stored baseline (e.g. app restart,
             // PC reboot) — no decompilation needed.

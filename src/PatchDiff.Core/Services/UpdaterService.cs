@@ -183,7 +183,6 @@ public sealed class UpdaterService
             var pid = Environment.ProcessId;
             var appExe = Path.Combine(installDir, "PatchDiff.exe");
             var script = Path.Combine(Path.GetTempPath(), "patchdiff-apply.cmd");
-            var q = "\"";
 
             var cmd = new System.Text.StringBuilder();
             cmd.AppendLine("@echo off");
