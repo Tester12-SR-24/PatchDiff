@@ -174,6 +174,15 @@ public partial class App : Application
             sb.AppendLine($"type:   {ex.GetType().FullName}");
             sb.AppendLine($"message:{ex.Message}");
             sb.AppendLine(ex.StackTrace);
+            var inner = ex.InnerException;
+            int depth = 1;
+            while (inner is not null)
+            {
+                sb.AppendLine($"--- inner[{depth}] {inner.GetType().FullName}: {inner.Message}");
+                sb.AppendLine(inner.StackTrace);
+                inner = inner.InnerException;
+                depth++;
+            }
             File.WriteAllText(file, sb.ToString());
         }
         catch { /* crash logging must never throw */ }

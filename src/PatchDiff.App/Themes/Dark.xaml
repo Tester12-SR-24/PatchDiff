@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ctl="clr-namespace:PatchDiff">
 
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="Icons.xaml"/>
@@ -109,7 +110,7 @@
                             CornerRadius="7" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
-                                  Stroke="{TemplateBinding Foreground}" Fill="None"
+                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}"
                                   StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   StrokeLineJoin="Round" Width="16" Height="16" Stretch="Uniform"
                                   VerticalAlignment="Center"/>
@@ -149,7 +150,7 @@
                             CornerRadius="7" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Path Data="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=(ctl:IconGlyph.Geometry)}"
-                                  Stroke="{TemplateBinding Foreground}" Fill="None"
+                                  Stroke="{TemplateBinding Foreground}" Fill="{x:Null}"
                                   StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   StrokeLineJoin="Round" Width="16" Height="16" Stretch="Uniform"
                                   VerticalAlignment="Center"/>
@@ -443,7 +444,7 @@
                                            VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0"
                                            Visibility="Collapsed"/>
                                 <Path Data="{StaticResource IconChevronDown}"
-                                      Stroke="{StaticResource TextDimBrush}" Fill="None" StrokeThickness="1.8"
+                                      Stroke="{StaticResource TextDimBrush}" Fill="{x:Null}" StrokeThickness="1.8"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       Width="10" Height="10" Stretch="Uniform"
                                       DockPanel.Dock="Right" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0"/>
