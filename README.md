@@ -22,6 +22,14 @@ HTML diff reports · built-in updater · GUI and CLI for **Windows**.
 
 ---
 
+## 📸 Screenshots
+
+<img src="assets/screenshots/watching.png" alt="PatchDiff watching a DLL — rail, status pills and timeline" width="100%">
+
+<img src="assets/screenshots/onboarding.png" alt="PatchDiff welcome screen with demo mode" width="100%">
+
+---
+
 ## 📖 What is PatchDiff?
 
 PatchDiff is a Windows tool (GUI + CLI) that keeps an eye on compiled .NET assemblies —
