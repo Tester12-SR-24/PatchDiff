@@ -261,14 +261,30 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!--
+      Selection colours for WPF's BUILT-IN list templates. Overriding the
+      SystemColors keys themes GridView/ListView selection without replacing the
+      default control templates. Replacing the ListViewItem template is NOT safe
+      here: in GridView mode the default template hosts the GridViewRowPresenter,
+      so a plain ContentPresenter makes every cell render item.ToString() instead
+      of the bound column content.
+    -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2a3a52"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#e6e6e6"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#2a3a52"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#e6e6e6"/>
+
     <Style TargetType="ListViewItem">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListViewItem">
-                    <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Padding="2"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter/>
+                    <!-- GridViewRowPresenter is REQUIRED here: in GridView mode it is what
+                         renders the columns. A plain ContentPresenter makes every cell
+                         fall back to item.ToString(). -->
+                    <Border x:Name="Bd" Background="Transparent" SnapsToDevicePixels="True">
+                        <GridViewRowPresenter Content="{TemplateBinding Content}"
+                                              Columns="{TemplateBinding GridView.ColumnCollection}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
