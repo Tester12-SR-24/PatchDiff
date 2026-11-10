@@ -25,11 +25,22 @@ public partial class MatrixView : UserControl
 
     public event Action<AssemblyDiffResult, string>? DiffRequested;
 
+    // Soft cap: the matrix is an N x N grid of live buttons; without a bound,
+    // a long history materializes thousands of cells at once. Show the most
+    // recent window; the caption tells the user what was left out.
+    const int MaxRevisions = 30;
+
     public MatrixView(WatchedDll watch, IReadOnlyList<AssemblySnapshot> revisions)
     {
         InitializeComponent();
         _watch = watch;
-        foreach (var snap in revisions.OrderBy(r => r.CapturedUtc))
+        var ordered = revisions.OrderBy(r => r.CapturedUtc).ToList();
+        if (ordered.Count > MaxRevisions)
+        {
+            SubtitleText.Text += $"  Showing the most recent {MaxRevisions} of {ordered.Count} revisions.";
+            ordered = ordered.Skip(ordered.Count - MaxRevisions).ToList();
+        }
+        foreach (var snap in ordered)
         {
             _revisions.Add(new MatrixRevision
             {

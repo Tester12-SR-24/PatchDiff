@@ -108,7 +108,13 @@ public partial class App : Application
                     $"{name}: duplicate implicit style key(s): {string.Join(", ", dup)}");
 
             // class 2: attribute after a self-closing tag
-            if (Regex.IsMatch(text, @"/>\s*\w+="""))
+            // Check a masked copy: attribute VALUES are replaced by a placeholder
+            // (quotes kept) so a legal '/>' inside a value (e.g. Text="x/>y")
+            // cannot trip the pattern, while a real '/>' followed by an attribute
+            // still matches.
+            var textMasked = Regex.Replace(text, "\"[^\"\r\n]*\"", m => "\"@\"");
+            textMasked = Regex.Replace(textMasked, "'[^'\r\n]*'", m => "'@'");
+            if (Regex.IsMatch(textMasked, @"/>\s*[\w.]+="""))
                 throw new InvalidOperationException(
                     $"{name}: attribute found after a self-closing tag (/> Margin=... pattern)");
         }
