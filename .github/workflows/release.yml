@@ -39,8 +39,8 @@ jobs:
       - name: Archive
         shell: pwsh
         run: |
-          Compress-Archive -Path "dist/cli/*" -DestinationPath "patchdiff-win-x64.zip"
-          Compress-Archive -Path "dist/app/*" -DestinationPath "PatchDiff-win-x64.zip"
+          Compress-Archive -Path "dist/cli/*" -DestinationPath "patchdiff-win-x64.zip" -Force
+          Compress-Archive -Path "dist/app/*" -DestinationPath "PatchDiff-win-x64.zip" -Force
 
       - name: Build installer (Inno Setup)
         shell: pwsh
@@ -95,13 +95,11 @@ jobs:
 
       - name: Package .AppImage
         run: |
-          # AppImage needs linuxdeploy; download and run it
-          chmod +x dist/app-linux/PatchDiff
-          mkdir -p AppDir/usr/bin
+          VER=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications
           cp -a dist/app-linux/* AppDir/usr/bin/
           chmod +x AppDir/usr/bin/PatchDiff
-          mkdir -p AppDir/usr/share/applications
-          cat > AppDir/patchdiff.desktop << 'DESKTOP'
+          cat > AppDir/usr/share/applications/patchdiff.desktop << 'DESKTOP'
           [Desktop Entry]
           Name=PatchDiff
           Exec=PatchDiff
@@ -109,9 +107,15 @@ jobs:
           Categories=Development;
           Comment=Watch game DLLs and see what each patch changed
           DESKTOP
+          # icon: AppImage wants usr/share/icons/hicolor/<size>/apps/<name>.png
+          mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
+          cp dist/app-linux/icon-512.png AppDir/usr/share/icons/hicolor/512x512/apps/patchdiff.png 2>/dev/null ||             cp src/PatchDiff.AppA/Assets/icon-512.png AppDir/usr/share/icons/hicolor/512x512/apps/patchdiff.png
+          ln -sf usr/share/icons/hicolor/512x512/apps/patchdiff.png AppDir/.DirIcon
+          ln -sf usr/bin/PatchDiff AppDir/AppRun
           wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
           chmod +x linuxdeploy-x86_64.AppImage
           OUTPUT=patchdiff-linux-x64.AppImage ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          chmod +x patchdiff-linux-x64.AppImage
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
