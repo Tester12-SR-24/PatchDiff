@@ -6,12 +6,11 @@
 
 Decompiles with the ILSpy engine · snapshot baselines · automatic patch detection ·
 revision archive with history, labels and a diff matrix · decompiled source browser ·
-HTML diff reports · built-in updater · GUI and CLI for **Windows**.
+HTML diff reports · built-in updater · GUI and CLI for **Windows and Linux**.
 
 | | |
 |:--|:--|
-| **Release** | `v1.2.4` |
-| **Platform** | Windows x64 (WPF) |
+| **Platform** | Windows (WPF) · Linux x64/ARM64 (Avalonia) |
 | **Runtime** | .NET 8 — self-contained, no install needed |
 | **Engine** | ILSpy (`ICSharpCode.Decompiler`) |
 | **Diff** | DiffPlex, line-level side-by-side |
@@ -30,7 +29,7 @@ This is a Do Whatever The Fuck project — you are free to tear everything down 
 
 ## 📖 What is PatchDiff?
 
-PatchDiff is a Windows tool (GUI + CLI) that keeps an eye on compiled .NET assemblies —
+PatchDiff is a cross-platform desktop and CLI tool that keeps an eye on compiled .NET assemblies —
 typically a Unity game's `Assembly-CSharp.dll` — and shows you **exactly what a patch
 changed** inside them, in plain decompiled C#.
 
@@ -56,7 +55,7 @@ touching the game files themselves.
 | 📄 | **HTML reports** | Self-contained, start-collapsed diff reports for every detected patch. |
 | 🔎 | **Type search** | Search every decompiled `.cs` file across all watched baselines at once. |
 | 💾 | **Persistence & auto-start** | Watch list, timeline, baselines and window state survive restarts; optional *Start with Windows* so a rebooted PC keeps watching. |
-| 📥 | **Built-in updater** | Help ▸ *Check for updates* follows the GitHub Releases feed — the full payload (exe + native DLLs) is applied to the install folder via robocopy mirror; the result is recorded and reported at next launch. Unchanged files keep their old dates (that is normal, not a failed update). |
+| 📥 | **Built-in updater** | Help ▸ *Check for updates* checks GitHub for the latest version — the full payload (exe + native DLLs) is applied to the install folder via robocopy mirror; the result is recorded and reported at next launch. Unchanged files keep their old dates (that is normal, not a failed update). |
 | 🔔 | **System tray** | Close-to-tray, tray menu and balloon alerts on detected patches; single-instance; drag & drop DLLs or folders. |
 
 <details>
@@ -73,21 +72,63 @@ installer runs. PatchDiff keeps a decompiled snapshot of every version it has se
 
 </details>
 
-## 🚀 Install on Windows
+## 🚀 Install
 
-### Option A — download a release (easiest)
+Download the package for your operating system: Windows and Linux x64/ARM64 builds are available.
 
-Grab a build from the [Releases](../../releases) page — every `v*` tag ships prebuilt binaries:
+### Windows
 
 | Artifact | What it is |
 |---|---|
-| `PatchDiff-setup-x.y.z.exe` | **Installer** — per-user, no admin required; directory chooser, desktop shortcut checkbox, Start-menu entry, uninstaller |
-| `PatchDiff-app-win-x64.zip` | **Desktop app** — extract the zip anywhere user-writable and run `PatchDiff.exe` |
-| `patchdiff-win-x64.zip` | **CLI** — extract and put `patchdiff.exe` somewhere on your `PATH` |
+| `PatchDiff-setup-x.y.z.exe` | **Installer** — per-user, no admin required; directory chooser, optional desktop shortcut, Start-menu entry, uninstaller |
+| `PatchDiff-win-x64.zip` | **Portable desktop app** — extract anywhere user-writable and run `PatchDiff.exe` |
+| `patchdiff-win-x64.zip` | **CLI** — extract and put `patchdiff.exe` on your `PATH` |
 
 Both are self-contained: **no .NET runtime install required**.
 
-### Option B — build from source
+### Linux
+
+Choose the package matching your CPU architecture:
+
+| Package | Architecture | How to run |
+|---|---|---|
+| `PatchDiff-linux-x64.AppImage` | x86-64 / AMD64 | `chmod +x PatchDiff-linux-x64.AppImage && ./PatchDiff-linux-x64.AppImage` |
+| `PatchDiff-linux-arm64.AppImage` | ARM64 / AArch64 | `chmod +x PatchDiff-linux-arm64.AppImage && ./PatchDiff-linux-arm64.AppImage` |
+| `PatchDiff-linux-x64.tar.gz` | x86-64 / AMD64 | Extract, then run `./PatchDiff` |
+| `PatchDiff-linux-arm64.tar.gz` | ARM64 / AArch64 | Extract, then run `./PatchDiff` |
+
+#### AppImage
+
+Download the AppImage for your architecture, then:
+
+```bash
+chmod +x PatchDiff-linux-x64.AppImage
+./PatchDiff-linux-x64.AppImage
+```
+
+For ARM64, use `PatchDiff-linux-arm64.AppImage` instead. AppImages are self-contained and do not require a .NET runtime. If your distribution does not support AppImage out of the box, install FUSE 2 (Ubuntu/Debian: `sudo apt install libfuse2`).
+
+#### Tarball
+
+Extract the matching `PatchDiff-linux-x64.tar.gz` or `PatchDiff-linux-arm64.tar.gz` into a user-writable directory. The archive contains the GUI (`PatchDiff`) and CLI (`patchdiff-cli`):
+
+```bash
+tar -xzf PatchDiff-linux-x64.tar.gz -C ~/Applications/PatchDiff
+cd ~/Applications/PatchDiff
+chmod +x PatchDiff patchdiff-cli
+./PatchDiff                 # GUI
+./patchdiff-cli version     # CLI
+```
+
+The GUI uses Avalonia and supports X11/Wayland. The self-contained binaries need no .NET runtime. On Debian/Ubuntu, install these shared libraries if they are not already present:
+
+```bash
+sudo apt install libx11-6 libice6 libsm6 libfontconfig1
+```
+
+### Build from source (Windows)
+
+The Windows build instructions below use the WPF desktop app. For Linux, see the separate Avalonia instructions below.
 
 Requires [git](https://git-scm.com) and the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
@@ -98,7 +139,7 @@ git checkout main
 dotnet build
 ```
 
-That builds the whole solution — Core library, CLI and WPF app:
+On Windows, this builds the solution — Core library, CLI and WPF app:
 
 ```bat
 :: run the CLI
@@ -109,7 +150,7 @@ start src\PatchDiff.App\bin\Debug\net8.0-windows\PatchDiff.exe
 ```
 
 <details>
-<summary><b>📦 Self-contained single-file builds (what the releases contain)</b></summary>
+<summary><b>📦 Self-contained single-file builds</b></summary>
 
 ```bat
 :: CLI — runs on any x64 Windows machine, no .NET install required
@@ -124,9 +165,25 @@ dotnet publish src\PatchDiff.App -c Release -r win-x64 --self-contained true ^
 ```
 
 Zip `publish\cli` as `patchdiff-win-x64.zip` and `publish\app` as
-`PatchDiff-app-win-x64.zip` to reproduce the release assets.
+`PatchDiff-win-x64.zip` to create the Windows distributable package.
 
 </details>
+
+### Build from source (Linux)
+
+Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) and the Linux desktop libraries listed above. The Avalonia app is in `src/PatchDiff.AppA` (the WPF app is Windows-only).
+
+```bash
+# Run from source
+dotnet run --project src/PatchDiff.AppA
+dotnet run --project src/PatchDiff.Cli -- compare old.dll new.dll
+
+# Publish self-contained Linux x64 builds (use linux-arm64 for ARM64)
+dotnet publish src/PatchDiff.AppA -c Release -r linux-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/linux-x64/app
+dotnet publish src/PatchDiff.Cli -c Release -r linux-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/linux-x64/cli
+```
 
 ## 🖥 Usage
 
@@ -229,7 +286,7 @@ else — useful for portable installs or running isolated instances side by side
 - References resolve from the DLL's own folder first (Unity's Managed folder ships its own
   BCL), falling back to the .NET Framework 4.x directories.
 - Only top-level types are tracked individually; nested types ride along in their parent.
-- Built for Windows (WPF, x64). There are no Linux or macOS builds.
+- The Windows desktop app uses WPF; Linux builds use Avalonia. Linux packages are available for x64 and ARM64. There are no macOS builds.
 
 ## 🔥 Power hacks
 
