@@ -86,8 +86,11 @@ public partial class MainWindow : Window
             {
                 var status = File.ReadAllText(statusFile).Trim();
                 File.Delete(statusFile);
-                if (status == "0")
-                    AddLog($"Update applied — now running {current}. All files in the install folder were replaced.");
+                // robocopy exit codes are a bitmask: 0-7 are SUCCESS (1 = files copied,
+                // 2 = extra files present, 4 = mismatches); >= 8 means real failure.
+                var ok = int.TryParse(status, out var rc) && rc >= 0 && rc < 8;
+                if (ok)
+                    AddLog($"Update applied — now running {current}. All files in the install folder were replaced (robocopy code {rc}).");
                 else if (status == "pending")
                     AddLog("An update was started but its file swap could not be confirmed.");
                 else
