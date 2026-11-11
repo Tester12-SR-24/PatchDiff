@@ -235,6 +235,39 @@ else — useful for portable installs or running isolated instances side by side
 - Only top-level types are tracked individually; nested types ride along in their parent.
 - Built for Windows (WPF, x64). There are no Linux or macOS builds.
 
+## 🔥 Power hacks
+
+Things the tool does that aren't obvious from the UI:
+
+- **Diff a DLL you don't have a baseline for** — `patchdiff compare` doesn't need PatchDiff
+  to have ever watched the file. Point it at any two DLLs (even from different games) and it
+  decompiles both on the fly.
+- **Use the revision archive as a game-patch changelog** — every time a game updates,
+  PatchDiff archives the old DLL. After a few patches you have a local history of every
+  version you've played, with decompiled source you can grep through without launching the
+  game.
+- **Isolate two games side by side** — set `PATCHDIFF_DATA_DIR` to a different folder in each
+  terminal, run two instances, and watch two different games at the same time without
+  cross-contaminating baselines.
+- **Feed the HTML report into anything** — the report is a single self-contained `.html`
+  file with no external dependencies. Open it in a browser, email it, drop it in a Discord
+  channel, or script against it.
+- **Restore a previous build to A/B test** — History ▸ Restore puts the old DLL bytes back
+  on disk. If a patch broke something, you can roll back and check without reinstalling.
+- **Grep the decompiled sources** — Sources ▸ Export writes every decompiled type as a
+  separate `.cs` file. That's a full-text-searchable codebase of whatever the game ships.
+
+## 🤝 Contributing
+
+There are no contribution guidelines. There is no code of conduct. There is no CLA.
+
+This is WTFPL. **Do what the fuck you want to.**
+
+If you want to contribute:
+- Fork it, change it, open a PR. If it's good, it gets merged. If it's not, nobody cares.
+- Report bugs. Be specific. Screenshots help.
+- Don't ask permission. The license literally says you don't need it.
+
 ## 🧰 Building blocks
 
 - [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) — C# decompilation engine
