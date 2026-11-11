@@ -21,6 +21,12 @@ HTML diff reports · built-in updater · GUI and CLI for **Windows**.
 
 ---
 
+## Disclosure
+
+This project is vibe-coded using 5 AI models simultaneously.
+Each AI model was given a name of Chimp, Alvin, Gal, Farway, and GLM-TDC.
+This project is a Do Whatever The Fuck project, so you are free to tear everything down and rebuild it.
+
 ## 📖 What is PatchDiff?
 
 PatchDiff is a Windows tool (GUI + CLI) that keeps an eye on compiled .NET assemblies —
