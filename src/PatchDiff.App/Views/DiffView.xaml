@@ -17,6 +17,13 @@
             <Setter Property="Margin" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
         </Style>
+        <Style x:Key="PaneHeader" TargetType="TextBlock">
+            <Setter Property="Background" Value="#202025"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#9a9aa9"/>
+            <Setter Property="Padding" Value="12,6,12,6"/>
+        </Style>
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="#26262b"/>
             <Setter Property="Foreground" Value="#cfcfda"/>
@@ -70,89 +77,155 @@
             <TextBox DockPanel.Dock="Top" x:Name="FilterBox" Margin="10,10,10,6" TextChanged="OnFilterChanged"
                      Background="#26262b" Foreground="#e6e6e6" BorderBrush="#33333a" CaretBrush="#e6e6e6"
                      VerticalContentAlignment="Center"/>
-            <ListBox x:Name="SectionList" Background="#1b1b1f" BorderThickness="0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ItemContainerStyle="{StaticResource DiffRowContainer}"
-                     FontFamily="Consolas" FontSize="12"
-                     AlternationCount="0">
-                <ListBox.Resources>
-                    <DataTemplate DataType="{x:Type views:SectionVm}">
-                        <Border Background="#202025" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,7,12,7"
-                                PreviewMouseLeftButtonDown="OnSectionClick" Cursor="Hand">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock x:Name="Chevron" Text="▶" FontSize="9" Foreground="#9a9aa9"
-                                           VerticalAlignment="Center" Margin="0,1,9,0"/>
-                                <TextBlock Text="{Binding FullName}" FontWeight="SemiBold" FontSize="12.5"
-                                           FontFamily="Segoe UI" VerticalAlignment="Center"/>
-                                <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
-                                    <Border Background="#22371F" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
-                                            Visibility="{Binding AddBadge, Converter={StaticResource CollapsedWhenEmpty}}">
-                                        <TextBlock Text="{Binding AddBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#7be495"
-                                                   FontFamily="Segoe UI"/>
-                                    </Border>
-                                    <Border Background="#3A2126" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
-                                            Visibility="{Binding RemBadge, Converter={StaticResource CollapsedWhenEmpty}}">
-                                        <TextBlock Text="{Binding RemBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#ff8fa0"
-                                                   FontFamily="Segoe UI"/>
-                                    </Border>
-                                    <Border Background="#39301A" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
-                                            Visibility="{Binding ModBadge, Converter={StaticResource CollapsedWhenEmpty}}">
-                                        <TextBlock Text="{Binding ModBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#ffd166"
-                                                   FontFamily="Segoe UI"/>
-                                    </Border>
-                                    <Border Background="#26262b" BorderBrush="#33333a" BorderThickness="1" CornerRadius="9" Padding="7,1">
-                                        <TextBlock Text="{Binding Kind}" FontSize="10.5" Foreground="#9a9aa9" FontFamily="Segoe UI"/>
-                                    </Border>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        <DataTemplate.Triggers>
-                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
-                                <Setter TargetName="Chevron" Property="Text" Value="▼"/>
-                            </DataTrigger>
-                        </DataTemplate.Triggers>
-                    </DataTemplate>
-                    <DataTemplate DataType="{x:Type views:DiffRowVm}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="1"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Border MinHeight="19" BorderThickness="3,0,0,0"
-                                    Background="{Binding OldKind, Converter={StaticResource DiffBrush}}"
-                                    BorderBrush="{Binding OldKind, Converter={StaticResource DiffEdge}}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding OldLine}" FontSize="10.5" Foreground="#55555f"
-                                               TextAlignment="Right" Padding="0,1,8,0"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding OldText}" Padding="0,1,8,1"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding OldKind, Converter={StaticResource DiffText}}"/>
-                                </Grid>
-                            </Border>
-                            <Border Grid.Column="2" MinHeight="19" BorderThickness="3,0,0,0"
-                                    Background="{Binding NewKind, Converter={StaticResource DiffBrush}}"
-                                    BorderBrush="{Binding NewKind, Converter={StaticResource DiffEdge}}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding NewLine}" FontSize="10.5" Foreground="#55555f"
-                                               TextAlignment="Right" Padding="0,1,8,0"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding NewText}" Padding="0,1,8,1"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding NewKind, Converter={StaticResource DiffText}}"/>
-                                </Grid>
-                            </Border>
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.Resources>
-            </ListBox>
+
+            <!-- two independent panes, each with its own vertical scrollbar -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="1"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0">
+                    <Border DockPanel.Dock="Top" Background="#202025" BorderBrush="#33333a" BorderThickness="0,0,0,1">
+                        <TextBlock Text="Previous version" Style="{StaticResource PaneHeader}"/>
+                    </Border>
+                    <ListBox x:Name="OldList" Background="#1b1b1f" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                             ItemContainerStyle="{StaticResource DiffRowContainer}"
+                             FontFamily="Consolas" FontSize="12"
+                             Padding="0,0,2,0">
+                        <ListBox.Resources>
+                            <DataTemplate DataType="{x:Type views:SectionVm}">
+                                <Border Background="#202025" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,7,12,7"
+                                        PreviewMouseLeftButtonDown="OnSectionClick" Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="Chevron" Text="▶" FontSize="9" Foreground="#9a9aa9"
+                                                   VerticalAlignment="Center" Margin="0,1,9,0"/>
+                                        <TextBlock Text="{Binding FullName}" FontWeight="SemiBold" FontSize="12.5"
+                                                   FontFamily="Segoe UI" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <Border Background="#22371F" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding AddBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding AddBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#7be495"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#3A2126" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding RemBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding RemBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#ff8fa0"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#39301A" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding ModBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding ModBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#ffd166"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#26262b" BorderBrush="#33333a" BorderThickness="1" CornerRadius="9" Padding="7,1">
+                                                <TextBlock Text="{Binding Kind}" FontSize="10.5" Foreground="#9a9aa9" FontFamily="Segoe UI"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                        <Setter TargetName="Chevron" Property="Text" Value="▼"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                            <DataTemplate DataType="{x:Type views:SideRowVm}">
+                                <Border MinHeight="19" MinWidth="{Binding MinWidth}" HorizontalAlignment="Left" BorderThickness="3,0,0,0"
+                                        Background="{Binding Kind, Converter={StaticResource DiffBrush}}"
+                                        BorderBrush="{Binding Kind, Converter={StaticResource DiffEdge}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="36"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Line}" FontSize="10.5" Foreground="#55555f"
+                                                   TextAlignment="Right" Padding="0,1,8,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Text}" Padding="0,1,8,1"
+                                                  
+                                                   Foreground="{Binding Kind, Converter={StaticResource DiffText}}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.Resources>
+                    </ListBox>
+                </DockPanel>
+
+                <Border Grid.Column="1" Background="#33333a"/>
+
+                <DockPanel Grid.Column="2">
+                    <Border DockPanel.Dock="Top" Background="#202025" BorderBrush="#33333a" BorderThickness="0,0,0,1">
+                        <TextBlock Text="New version" Style="{StaticResource PaneHeader}"/>
+                    </Border>
+                    <ListBox x:Name="NewList" Background="#1b1b1f" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                             ItemContainerStyle="{StaticResource DiffRowContainer}"
+                             FontFamily="Consolas" FontSize="12"
+                             Padding="0,0,2,0">
+                        <ListBox.Resources>
+                            <DataTemplate DataType="{x:Type views:SectionVm}">
+                                <Border Background="#202025" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,7,12,7"
+                                        PreviewMouseLeftButtonDown="OnSectionClick" Cursor="Hand">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="Chevron" Text="▶" FontSize="9" Foreground="#9a9aa9"
+                                                   VerticalAlignment="Center" Margin="0,1,9,0"/>
+                                        <TextBlock Text="{Binding FullName}" FontWeight="SemiBold" FontSize="12.5"
+                                                   FontFamily="Segoe UI" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <Border Background="#22371F" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding AddBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding AddBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#7be495"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#3A2126" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding RemBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding RemBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#ff8fa0"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#39301A" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding ModBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding ModBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#ffd166"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#26262b" BorderBrush="#33333a" BorderThickness="1" CornerRadius="9" Padding="7,1">
+                                                <TextBlock Text="{Binding Kind}" FontSize="10.5" Foreground="#9a9aa9" FontFamily="Segoe UI"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                        <Setter TargetName="Chevron" Property="Text" Value="▼"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                            <DataTemplate DataType="{x:Type views:SideRowVm}">
+                                <Border MinHeight="19" MinWidth="{Binding MinWidth}" HorizontalAlignment="Left" BorderThickness="3,0,0,0"
+                                        Background="{Binding Kind, Converter={StaticResource DiffBrush}}"
+                                        BorderBrush="{Binding Kind, Converter={StaticResource DiffEdge}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="36"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Line}" FontSize="10.5" Foreground="#55555f"
+                                                   TextAlignment="Right" Padding="0,1,8,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Text}" Padding="0,1,8,1"
+                                                  
+                                                   Foreground="{Binding Kind, Converter={StaticResource DiffText}}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.Resources>
+                    </ListBox>
+                </DockPanel>
+
+                <ScrollBar x:Name="VScroll" Grid.Column="3" Orientation="Vertical" Width="14"
+                           Background="#3d3d49" Scroll="OnVScroll" Margin="0"/>
+            </Grid>
         </DockPanel>
     </DockPanel>
 </UserControl>
