@@ -184,16 +184,7 @@ type counts and writes a self-contained HTML report.
 
 ## ⚙️ How it works
 
-```mermaid
-flowchart LR
-    A[DLL on disk] --> B{Hash changed?}
-    B -- no --> A
-    B -- yes --> C[Decompile with ILSpy engine]
-    C --> D[Diff vs baseline snapshot]
-    D --> E[HTML report + revision archive]
-    E --> F[Update baseline + notify GUI]
-    F --> A
-```
+![PatchDiff patch pipeline](assets/flow.png)
 
 1. **Baseline** — the first scan decompiles every top-level type of the DLL to C# (via
    `ICSharpCode.Decompiler`) and stores the snapshot in
