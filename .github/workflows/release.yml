@@ -101,7 +101,6 @@ jobs:
           Compress-Archive -Path "publish/win-x64/app/*" -DestinationPath "dist/PatchDiff-win-x64.zip" -Force
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss /DAppVersion=$env:version
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          Move-Item "Output/PatchDiff-setup-*.exe" "dist/" -Force
 
       - name: Upload Windows release files
         if: runner.os == 'Windows'
