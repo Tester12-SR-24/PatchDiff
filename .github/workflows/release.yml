@@ -3,6 +3,12 @@ name: Build and publish release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag to publish, for example v1.2.4'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -29,6 +35,8 @@ jobs:
             rid: linux-arm64
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -37,8 +45,11 @@ jobs:
       - name: Resolve version
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: echo "version=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
 
       - name: Install Windows installer compiler
         if: runner.os == 'Windows'
@@ -92,21 +103,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Move-Item "Output/PatchDiff-setup-*.exe" "dist/" -Force
 
-      - name: Package (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist/release
-          cp -a "publish/${{ matrix.rid }}/app/." dist/release/
-          cp "publish/${{ matrix.rid }}/cli/patchdiff" dist/release/patchdiff-cli
-          tar -czf "dist/patchdiff-linux-${{ matrix.rid }}.tar.gz" -C dist/release .
-          rm -rf dist/release
+      - name: Upload Windows release files
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: dist/*
+          if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload compiled Linux build
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.rid }}
-          path: dist/*
+          path: publish/${{ matrix.rid }}
           if-no-files-found: error
 
   appimage:
@@ -123,6 +133,8 @@ jobs:
             appimage_arch: aarch64
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
       - name: Download compiled build
         uses: actions/download-artifact@v4
@@ -199,8 +211,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p PatchDiff/linux-x64 PatchDiff/linux-arm64
-          cp -a builds/build-linux-x64/. PatchDiff/linux-x64/
-          cp -a builds/build-linux-arm64/. PatchDiff/linux-arm64/
+          cp -a builds/build-linux-x64/app/. PatchDiff/linux-x64/
+          cp builds/build-linux-x64/cli/patchdiff PatchDiff/linux-x64/patchdiff-cli
+          cp -a builds/build-linux-arm64/app/. PatchDiff/linux-arm64/
+          cp builds/build-linux-arm64/cli/patchdiff PatchDiff/linux-arm64/patchdiff-cli
           cp appimages/appimage-linux-x64/PatchDiff-linux-x64.AppImage PatchDiff/linux-x64/
           cp appimages/appimage-linux-arm64/PatchDiff-linux-arm64.AppImage PatchDiff/linux-arm64/
           chmod +x PatchDiff/linux-x64/* PatchDiff/linux-arm64/* 2>/dev/null || true
@@ -235,10 +249,11 @@ jobs:
         with:
           name: appimage-linux-arm64
 
-      - name: Download Windows build
+      - name: Download Windows release files
         uses: actions/download-artifact@v4
         with:
-          name: build-win-x64
+          name: windows-release
+          path: dist
 
       - name: Publish release
         uses: ncipollo/release-action@v1
@@ -253,8 +268,8 @@ jobs:
             dist/patchdiff-win-x64.zip
             dist/PatchDiff-win-x64.zip
             dist/PatchDiff-setup-*.exe
-          tag: ${{ github.ref_name }}
-          name: PatchDiff ${{ github.ref_name }}
+          tag: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+          name: PatchDiff ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
           generateReleaseNotes: true
           prerelease: false
           makeLatest: true
