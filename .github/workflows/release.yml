@@ -85,6 +85,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Path "dist" -Force | Out-Null
           Compress-Archive -Path "publish/win-x64/cli/*" -DestinationPath "dist/patchdiff-win-x64.zip" -Force
           Compress-Archive -Path "publish/win-x64/app/*" -DestinationPath "dist/PatchDiff-win-x64.zip" -Force
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss /DAppVersion=$env:version
