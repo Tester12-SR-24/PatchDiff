@@ -10,7 +10,7 @@ HTML diff reports · built-in updater · GUI and CLI for **Windows**.
 
 | | |
 |:--|:--|
-| **Release** | `v1.2.3` |
+| **Release** | `v1.2.4` |
 | **Platform** | Windows x64 (WPF) |
 | **Runtime** | .NET 8 — self-contained, no install needed |
 | **Engine** | ILSpy (`ICSharpCode.Decompiler`) |
@@ -48,7 +48,7 @@ touching the game files themselves.
 |---|---|---|
 | 👁 | **Watch mode** | Point PatchDiff at one or more DLLs; it detects every update automatically (`FileSystemWatcher` + polling fallback), re-decompiles, and diffs against the baseline. |
 | ⚡ | **Compare mode** | One-shot diff of any two DLLs — `patchdiff compare old.dll new.dll`. |
-| 🔍 | **Decompiled diffs** | Full C# decompilation via `ICSharpCode.Decompiler` (the ILSpy engine). The diff view uses collapsible per-type sections with line-delta badges (`+n` green / `−n` red / `~n` yellow) and a kind pill, plus **Expand all / Collapse all** controls. Inside each expanded section: refined side-by-side rows with line numbers, 3px left-edge accents, tinted text, and ellipsised long lines (no horizontal scrollbar). First section auto-expands. |
+| 🔍 | **Decompiled diffs** | Full C# decompilation via `ICSharpCode.Decompiler` (the ILSpy engine). The diff view uses collapsible per-type sections with line-delta badges (`+n` green / `−n` red / `~n` yellow) and a kind pill, plus **Expand all / Collapse all** controls. Inside each expanded section: refined side-by-side rows with line numbers, 3px left-edge accents, tinted text, and ellipsised long lines (no horizontal scrollbar). First section auto-expands. The diff panes scroll independently: one shared vertical scrollbar moves both versions together, and each side has its own horizontal scrollbar for reading long lines. |
 | 🌳 | **Assembly browser** | ILSpy-style namespace → type → member tree with the decompiled source beside it; clicking a member scrolls to and highlights it; one-click *diff vs previous / current* and `.cs` export. |
 | 🗄 | **Revision archive** | Every version of every watched DLL is kept: a manifest per revision (SHA-256, assembly version, timestamp, type count) plus the original DLL bytes, so you can study or restore any old build. |
 | 🕘 | **History & restore** | Compare any two archived revisions, restore an old build with one click, and name revisions (e.g. *"Season 4 launch"*) so the history reads like a changelog. *Diff vs current* diffs the clicked revision against the baseline. |
