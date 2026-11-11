@@ -322,12 +322,12 @@
     </Style>
 
     <Style TargetType="ScrollBar">
-        <Setter Property="Width" Value="9"/>
+        <Setter Property="Width" Value="12"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollBar">
-                    <Grid Background="Transparent">
+                    <Grid Background="#26262b">
                         <Track x:Name="PART_Track" IsDirectionReversed="True">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Style="{StaticResource ScrollBarRepeat}" Command="ScrollBar.PageUpCommand"/>
@@ -339,10 +339,10 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Border x:Name="ThumbBd" Background="#4a4d58" CornerRadius="4" Margin="2"/>
+                                            <Border x:Name="ThumbBd" Background="#6a6e7b" CornerRadius="5" Margin="2"/>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="ThumbBd" Property="Background" Value="#5d606c"/>
+                                                    <Setter TargetName="ThumbBd" Property="Background" Value="#848896"/>
                                                 </Trigger>
                                                 <Trigger Property="IsDragging" Value="True">
                                                     <Setter TargetName="ThumbBd" Property="Background" Value="{StaticResource AccentBrush}"/>
@@ -360,11 +360,11 @@
         <Style.Triggers>
             <Trigger Property="Orientation" Value="Horizontal">
                 <Setter Property="Width" Value="Auto"/>
-                <Setter Property="Height" Value="9"/>
+                <Setter Property="Height" Value="12"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ScrollBar">
-                            <Grid Background="Transparent">
+                            <Grid Background="#26262b">
                                 <Track x:Name="PART_Track">
                                     <Track.DecreaseRepeatButton>
                                         <RepeatButton Style="{StaticResource ScrollBarRepeat}" Command="ScrollBar.PageLeftCommand"/>
@@ -376,10 +376,10 @@
                                         <Thumb>
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
-                                                    <Border x:Name="ThumbBd" Background="#4a4d58" CornerRadius="4" Margin="2"/>
+                                                    <Border x:Name="ThumbBd" Background="#6a6e7b" CornerRadius="5" Margin="2"/>
                                                     <ControlTemplate.Triggers>
                                                         <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="ThumbBd" Property="Background" Value="#5d606c"/>
+                                                            <Setter TargetName="ThumbBd" Property="Background" Value="#848896"/>
                                                         </Trigger>
                                                         <Trigger Property="IsDragging" Value="True">
                                                             <Setter TargetName="ThumbBd" Property="Background" Value="{StaticResource AccentBrush}"/>

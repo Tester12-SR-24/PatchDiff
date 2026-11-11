@@ -53,6 +53,7 @@ public partial class MainWindow : Window
         TimelineList.ItemsSource = Timeline;
         WatchManagerHookup();
         LoadSettings();
+        ReportUpdateOutcome();
         InitTray();
         OpenOverviewTab();
         SystemEvents.SessionEnding += (_, _) => SaveAll();
@@ -66,6 +67,41 @@ public partial class MainWindow : Window
     }
 
     public ObservableCollection<TimelineEvent> Timeline { get; } = new();
+
+    /// <summary>
+    /// After a self-update, tell the user exactly what happened: the version now
+    /// running vs the version that ran before, and whether the file swap succeeded.
+    /// Reads the marker files the updater writes in DataRoot.
+    /// </summary>
+    void ReportUpdateOutcome()
+    {
+        try
+        {
+            var current = UpdaterService.CurrentVersion();
+            var lastSeenFile = Path.Combine(SnapshotStore.DataRoot, "last-version.txt");
+            var previous = File.Exists(lastSeenFile) ? File.ReadAllText(lastSeenFile).Trim() : "";
+
+            var statusFile = UpdaterService.ApplyStatusFile;
+            if (File.Exists(statusFile))
+            {
+                var status = File.ReadAllText(statusFile).Trim();
+                File.Delete(statusFile);
+                if (status == "0")
+                    AddLog($"Update applied — now running {current}. All files in the install folder were replaced.");
+                else if (status == "pending")
+                    AddLog("An update was started but its file swap could not be confirmed.");
+                else
+                    AddLog($"The last update FAILED to replace the install files (robocopy code {status}) — the old build is still running. Close any program locking the PatchDiff folder and try Help ▸ Check for updates again.");
+            }
+            else if (previous.Length > 0 && previous != current)
+            {
+                AddLog($"Updated to {current} (was {previous}).");
+            }
+
+            File.WriteAllText(lastSeenFile, current);
+        }
+        catch { /* version bookkeeping must never block startup */ }
+    }
 
     void WatchManagerHookup()
     {
@@ -622,12 +658,26 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!UpdaterService.IsNewer(release))
+        var newer = UpdaterService.IsNewerOrUnknown(release);
+        if (newer == false)
         {
             MessageBox.Show(this,
                 $"PatchDiff is up to date.\n\nLatest release: {release.Tag} ({release.Name})\n\nYou are running: {UpdaterService.CurrentVersion()}",
                 "Check for updates", MessageBoxButton.OK, MessageBoxImage.Information);
-            AddLog($"Up to date (latest release: {release.Tag}).");
+            AddLog($"Up to date — running {UpdaterService.CurrentVersion()} (latest release: {release.Tag}).");
+            return;
+        }
+        if (newer is null)
+        {
+            // Cannot determine the running version — never claim up-to-date; offer the update path.
+            AddLog($"Running version could not be determined; latest release: {release.Tag}.");
+            var choiceUnknown = MessageBox.Show(this,
+                $"The running version could not be determined, so PatchDiff cannot tell whether it is up to date.\n\n" +
+                $"Latest release: {release.Tag} ({release.Name})\n\n" +
+                "Open the releases page so you can download it manually?",
+                "Check for updates", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (choiceUnknown == MessageBoxResult.Yes)
+                Process.Start(new ProcessStartInfo(release.PageUrl) { UseShellExecute = true });
             return;
         }
 

@@ -68,14 +68,21 @@ public partial class HistoryView : UserControl
             var revs = store.List(_watch.Path).OrderBy(r => r.CapturedUtc).ToList();
             if (againstCurrent)
             {
-                var prev = revs.OrderByDescending(r => r.CapturedUtc)
-                    .FirstOrDefault(r => r.Sha256 != newSnap.Sha256);
-                if (prev is null)
+                // The row the user clicked is the "before" side; the stored baseline is "now".
+                // (This used to always diff "newest archived revision vs baseline" regardless
+                // of the clicked row — which produced confusing multi-patch cumulative diffs.)
+                if (row.Info.Sha256 == newSnap.Sha256)
                 {
-                    MessageBox.Show(OwnerWindow, "No earlier revision to compare with.", "PatchDiff");
+                    MessageBox.Show(OwnerWindow, "That revision is the current baseline — nothing to compare.", "PatchDiff");
                     return;
                 }
-                oldSnap = store.LoadRevision(_watch.Path, prev.Sha256)!;
+                var clicked = store.LoadRevision(_watch.Path, row.Info.Sha256);
+                if (clicked is null)
+                {
+                    MessageBox.Show(OwnerWindow, "Could not load that revision.", "PatchDiff");
+                    return;
+                }
+                oldSnap = clicked;
             }
             else
             {

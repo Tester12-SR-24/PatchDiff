@@ -17,26 +17,39 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Publish CLI (self-contained single file)
-        run: >
-          dotnet publish src/PatchDiff.Cli -c Release -r win-x64
-          --self-contained true
-          -p:PublishSingleFile=true -p:PublishTrimmed=false
-          -p:InformationalVersion=1.2.1 -p:IncludeSourceRevisionInInformationalVersion=false
-          -o dist/cli
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          dotnet publish src/PatchDiff.Cli -c Release -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true -p:PublishTrimmed=false `
+            -p:InformationalVersion=$ver -p:IncludeSourceRevisionInInformationalVersion=false `
+            -o dist/cli
 
       - name: Publish WPF app (self-contained single file)
-        run: >
-          dotnet publish src/PatchDiff.App -c Release -r win-x64
-          --self-contained true
-          -p:PublishSingleFile=true -p:PublishTrimmed=false
-          -p:InformationalVersion=1.2.1 -p:IncludeSourceRevisionInInformationalVersion=false
-          -o dist/app
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          dotnet publish src/PatchDiff.App -c Release -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true -p:PublishTrimmed=false `
+            -p:InformationalVersion=$ver -p:IncludeSourceRevisionInInformationalVersion=false `
+            -o dist/app
 
       - name: Archive
         shell: pwsh
         run: |
           Compress-Archive -Path "dist/cli/*" -DestinationPath "patchdiff-win-x64.zip"
           Compress-Archive -Path "dist/app/*" -DestinationPath "PatchDiff-app-win-x64.zip"
+
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          & $iscc installer.iss /DAppVersion=$ver
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
@@ -45,3 +58,4 @@ jobs:
           files: |
             patchdiff-win-x64.zip
             PatchDiff-app-win-x64.zip
+            dist/PatchDiff-setup-*.exe

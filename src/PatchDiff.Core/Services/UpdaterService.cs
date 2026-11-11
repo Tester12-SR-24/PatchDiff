@@ -76,13 +76,23 @@ public sealed class UpdaterService
         return Version.TryParse(core, out var v) ? v : null;
     }
 
-    /// <summary>True when the release tag is newer than the running build.</summary>
-    public static bool IsNewer(ReleaseInfo release)
+    /// <summary>
+    /// True when the release tag is newer than the running build. When the running
+    /// version cannot be determined, the result is "unknown": the caller must NOT
+    /// treat this as up-to-date — offer the update (or a manual-download path) so a
+    /// version-detection failure can never silently block all future updates.
+    /// </summary>
+    public static bool? IsNewerOrUnknown(ReleaseInfo release)
     {
         var local = ParseVersion(CurrentVersion());
         var remote = ParseVersion(release.Tag);
-        return local is null || remote is null ? false : remote > local;
+        if (local is null || remote is null) return null; // cannot prove up-to-date
+        return remote > local;
     }
+
+    /// <summary>True when the release tag is newer than the running build.
+    /// Kept for callers that only act on a definite yes.</summary>
+    public static bool IsNewer(ReleaseInfo release) => IsNewerOrUnknown(release) == true;
 
     public static string CurrentVersion()
     {
@@ -158,6 +168,12 @@ public sealed class UpdaterService
         }
     }
 
+    /// <summary>Path of the file the apply script writes its robocopy exit code to.</summary>
+    public static string ApplyStatusFile
+    {
+        get { var dir = Path.Combine(SnapshotStore.DataRoot, "update"); Directory.CreateDirectory(dir); return Path.Combine(dir, "last-apply.txt"); }
+    }
+
     /// <summary>
     /// Write and launch the apply-on-exit script: wait for the current process to
     /// exit, copy the staged build over the install folder, relaunch PatchDiff.
@@ -183,6 +199,7 @@ public sealed class UpdaterService
             var pid = Environment.ProcessId;
             var appExe = Path.Combine(installDir, "PatchDiff.exe");
             var script = Path.Combine(Path.GetTempPath(), "patchdiff-apply.cmd");
+            var applyStatusFile = ApplyStatusFile;
 
             var cmd = new System.Text.StringBuilder();
             cmd.AppendLine("@echo off");
@@ -192,15 +209,20 @@ public sealed class UpdaterService
             cmd.AppendLine("rem apply: robocopy mirrors the staged build over the install folder");
             cmd.AppendLine($"robocopy \"{stageTrimmed}\" \"{installTrimmed}\" /MIR >nul");
             cmd.AppendLine("rem robocopy exit codes 0-7 are success");
-            cmd.AppendLine("if %errorlevel% GTR 7 (");
+            cmd.AppendLine("set RC=%errorlevel%");
+            cmd.AppendLine("if %RC% GTR 7 (");
             cmd.AppendLine("    rem transient lock (AV scan etc.) — wait a beat and try once more");
             cmd.AppendLine("    timeout /t 2 /nobreak >nul");
             cmd.AppendLine($"    robocopy \"{stageTrimmed}\" \"{installTrimmed}\" /MIR >nul");
+            cmd.AppendLine("    set RC=%errorlevel%");
             cmd.AppendLine(")");
+            cmd.AppendLine("rem record the apply result where the next launch will find it");
+            cmd.AppendLine($"echo %RC% > \"{applyStatusFile}\"");
             cmd.AppendLine($"rmdir /s /q \"{stageTrimmed}\"");
             cmd.AppendLine($"start \"\" \"{appExe}\"");
             cmd.AppendLine("del \"%~f0\"");
             File.WriteAllText(script, cmd.ToString());
+            try { File.WriteAllText(ApplyStatusFile, "pending"); } catch { }
 
             Process.Start(new ProcessStartInfo("cmd.exe", "/c \"" + script + "\"")
             {
