@@ -10,22 +10,30 @@ HTML diff reports · built-in updater · GUI and CLI for **Windows**.
 
 | | |
 |:--|:--|
-| **Release** | `v1.1.0` |
+| **Release** | `v1.2.0` |
 | **Platform** | Windows x64 (WPF) |
 | **Runtime** | .NET 8 — self-contained, no install needed |
 | **Engine** | ILSpy (`ICSharpCode.Decompiler`) |
 | **Diff** | DiffPlex, line-level side-by-side |
-
+| **License** | WTFPL v2 |
 
 </div>
 
 ---
 
-## Disclosure
+## 🤖 Disclosure
 
-This project is vibe-coded using 5 AI models simultaneously.
-Each AI model was given a name of Chimp, Alvin, Gal, Farway, and GLM-TDC.
-This project is a Do Whatever The Fuck project, so you are free to tear everything down and rebuild it.
+> This project is **vibe-coded** by 5 AI models simultaneously.
+
+| | Model | Lane |
+|:--|:--|:--|
+| 🦍 | **Chimp** | Implementation lead — features, fixes, releases |
+| 🧑‍💻 | **Alvin** | Docs, license, dark theme, UI checks |
+| 🔬 | **Gal** | QA — captures, pixel verification, bug hunting |
+| 🧭 | **Farway** | QA captures — settings dialog & regression support |
+| 🤖 | **GLM-TDC** | Stealth fixes — settings logic & robustness |
+
+This is a *Do Whatever The Fuck* project. You are free to tear everything down and rebuild it.
 
 ## 📖 What is PatchDiff?
 
