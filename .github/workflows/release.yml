@@ -97,6 +97,10 @@ jobs:
 
       - name: Package .AppImage
         run: |
+          # arm64 binaries need qemu binfmt emulation so linuxdeploy-aarch64 can run on x86_64 runners
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static binfmt-support
+          fi
           mkdir -p AppDir/usr/bin AppDir/usr/share/applications
           cp -a dist/app-linux/* AppDir/usr/bin/
           chmod +x AppDir/usr/bin/PatchDiff
