@@ -1,4 +1,4 @@
-name: Release
+name: Build and release
 
 on:
   push:
@@ -8,101 +8,81 @@ permissions:
   contents: write
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-2025
+            arch: x64
+          - name: Linux x64
+            os: ubuntu-22.04
+            arch: x64
+          - name: Linux ARM64
+            os: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      - name: Publish CLI (self-contained single file)
+      - name: Install Windows installer compiler
+        if: runner.os == 'Windows'
         shell: pwsh
-        run: |
-          $ver = "${{ github.ref_name }}".TrimStart("v")
-          dotnet publish src/PatchDiff.Cli -c Release -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true -p:PublishTrimmed=false `
-            -p:InformationalVersion=$ver -p:IncludeSourceRevisionInInformationalVersion=false `
-            -o dist/cli
+        run: choco install innosetup --yes --no-progress
 
-      - name: Publish App (Avalonia, self-contained single file)
-        shell: pwsh
-        run: |
-          $ver = "${{ github.ref_name }}".TrimStart("v")
-          dotnet publish src/PatchDiff.AppA -c Release -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true -p:PublishTrimmed=false `
-            -p:InformationalVersion=$ver -p:IncludeSourceRevisionInInformationalVersion=false `
-            -o dist/app
+      - name: Install Linux desktop build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libx11-6 libice6 libsm6 libfontconfig1
 
-      - name: Archive
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "dist/cli/*" -DestinationPath "patchdiff-win-x64.zip" -Force
-          Compress-Archive -Path "dist/app/*" -DestinationPath "PatchDiff-win-x64.zip" -Force
+      - name: Set version
+        shell: bash
+        run: echo "VER=$(echo "${{ github.ref_name }}" | sed 's/^v//')" >> "$GITHUB_ENV"
 
-      - name: Build installer (Inno Setup)
+      - name: Publish CLI
+        shell: bash
+        run: >
+          dotnet publish src/PatchDiff.Cli -c Release -r ${{ runner.os == 'Windows' && 'win-x64' || format('linux-{0}', matrix.arch) }}
+          --self-contained true
+          -p:PublishSingleFile=true -p:PublishTrimmed=false
+          -p:InformationalVersion=$VER -p:IncludeSourceRevisionInInformationalVersion=false
+          -o dist/cli
+
+      - name: Publish App (Avalonia)
+        shell: bash
+        run: >
+          dotnet publish src/PatchDiff.AppA -c Release -r ${{ runner.os == 'Windows' && 'win-x64' || format('linux-{0}', matrix.arch) }}
+          --self-contained true
+          -p:PublishSingleFile=true -p:PublishTrimmed=false
+          -p:InformationalVersion=$VER -p:IncludeSourceRevisionInInformationalVersion=false
+          -o dist/app
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install innosetup -y --no-progress
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          $ver = "${{ github.ref_name }}".TrimStart("v")
-          & $iscc installer.iss /DAppVersion=$ver
+          Compress-Archive -Path "dist/cli/*" -DestinationPath "dist/patchdiff-win-x64.zip" -Force
+          Compress-Archive -Path "dist/app/*" -DestinationPath "dist/PatchDiff-win-x64.zip" -Force
+          $ver = $env:VER
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss /DAppVersion=$ver
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Upload release assets
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          overwrite_files: true
-          files: |
-            patchdiff-win-x64.zip
-            PatchDiff-win-x64.zip
-            dist/PatchDiff-setup-*.exe
-
-  linux:
-    strategy:
-      matrix:
-        arch: [x64, arm64]
-        include:
-          - arch: x64
-            rid: linux-x64
-            deploy: linuxdeploy-x86_64.AppImage
-            tar: patchdiff-linux-x64.tar.gz
-            appimage: patchdiff-linux-x64.AppImage
-          - arch: arm64
-            rid: linux-arm64
-            deploy: linuxdeploy-aarch64.AppImage
-            tar: patchdiff-linux-arm64.tar.gz
-            appimage: patchdiff-linux-arm64.AppImage
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Publish App (Avalonia, self-contained single file)
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
-          VER=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-          dotnet publish src/PatchDiff.AppA -c Release -r ${{ matrix.rid }}             --self-contained true             -p:PublishSingleFile=true -p:PublishTrimmed=false             -p:InformationalVersion=$VER -p:IncludeSourceRevisionInInformationalVersion=false             -o dist/app-linux
+          mkdir -p dist/release
+          cp -a dist/app/* dist/release/
+          cp dist/cli/patchdiff dist/release/patchdiff-cli
+          tar -czf dist/patchdiff-linux-${{ matrix.arch }}.tar.gz -C dist/release .
 
-      - name: Package .tar.gz
-        run: |
-          mkdir -p release/patchdiff-${{ github.ref_name }}-${{ matrix.arch }}
-          cp -a dist/app-linux/* release/patchdiff-${{ github.ref_name }}-${{ matrix.arch }}/
-          tar -czf ${{ matrix.tar }} -C release patchdiff-${{ github.ref_name }}-${{ matrix.arch }}
-
-      - name: Package .AppImage
-        run: |
-          # arm64 binaries need qemu binfmt emulation so linuxdeploy-aarch64 can run on x86_64 runners
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static binfmt-support
-          fi
+          # AppImage
           mkdir -p AppDir/usr/bin AppDir/usr/share/applications
-          cp -a dist/app-linux/* AppDir/usr/bin/
+          cp -a dist/app/* AppDir/usr/bin/
           chmod +x AppDir/usr/bin/PatchDiff
           cat > AppDir/usr/share/applications/patchdiff.desktop << 'DESKTOP'
           [Desktop Entry]
@@ -113,21 +93,34 @@ jobs:
           Categories=Development;
           Comment=Watch game DLLs and see what a patch changed
           DESKTOP
-          # icon: AppImage wants usr/share/icons/hicolor/<size>/apps/<name>.png
           mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
           cp src/PatchDiff.AppA/Assets/icon-512.png AppDir/usr/share/icons/hicolor/512x512/apps/patchdiff.png
           ln -sf usr/share/icons/hicolor/512x512/apps/patchdiff.png AppDir/.DirIcon
           ln -sf usr/bin/PatchDiff AppDir/AppRun
-          wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/${{ matrix.deploy }}"
-          chmod +x ${{ matrix.deploy }}
-          OUTPUT=${{ matrix.appimage }} ./${{ matrix.deploy }} --appdir AppDir --output appimage
-          chmod +x ${{ matrix.appimage }}
+          DEPLOY="linuxdeploy-x86_64.AppImage"
+          [ "${{ matrix.arch }}" = "arm64" ] && DEPLOY="linuxdeploy-aarch64.AppImage"
+          wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/$DEPLOY"
+          chmod +x "$DEPLOY"
+          OUTPUT="patchdiff-linux-${{ matrix.arch }}.AppImage" "./$DEPLOY" --appdir AppDir --output appimage
+          chmod +x "patchdiff-linux-${{ matrix.arch }}.AppImage"
 
-      - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
         with:
+          name: release-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
           generate_release_notes: true
-          overwrite_files: true
-          files: |
-            ${{ matrix.tar }}
-            ${{ matrix.appimage }}
