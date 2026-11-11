@@ -118,7 +118,7 @@
                             <DataTemplate>
                                 <StackPanel Margin="2" Orientation="Horizontal">
                                     <Image Source="icon.ico" Width="18" Height="18" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <Border Style="{StaticResource PillBorder}">
                                         <TextBlock Text="{Binding PillText}" Style="{StaticResource PillText}"/>
                                     </Border>
