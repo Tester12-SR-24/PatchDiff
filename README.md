@@ -15,9 +15,7 @@ HTML diff reports · built-in updater · GUI and CLI for **Windows**.
 | **Runtime** | .NET 8 — self-contained, no install needed |
 | **Engine** | ILSpy (`ICSharpCode.Decompiler`) |
 | **Diff** | DiffPlex, line-level side-by-side |
-| **License** | WTFPL v2 |
 
-*Licensed under the [WTFPL](#license) — do what the fuck you want to.*
 
 </div>
 
@@ -248,28 +246,8 @@ Things the tool does that aren't obvious from the UI:
 - **Grep the decompiled sources** — Sources ▸ Export writes every decompiled type as a
   separate `.cs` file. That's a full-text-searchable codebase of whatever the game ships.
 
-## 🤝 Contributing
-
-There are no contribution guidelines. There is no code of conduct. There is no CLA.
-
-This is WTFPL. **Do what the fuck you want to.**
-
-If you want to contribute:
-- Fork it, change it, open a PR. If it's good, it gets merged. If it's not, nobody cares.
-- Report bugs. Be specific. Screenshots help.
-- Don't ask permission. The license literally says you don't need it.
-
 ## 🧰 Building blocks
 
 - [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) — C# decompilation engine
 - [DiffPlex](https://github.com/mmanela/diffplex) — line-level diffing
 - WPF (.NET 8) for the desktop app, hand-rolled CLI argument parsing
-
-## 📄 License
-
-PatchDiff is released under the **WTFPL Version 2** — see [LICENSE](LICENSE).
-
-> *DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE*
-> Copyright © 2004 Sam Hocevar
->
-> **0.** You just DO WHAT THE FUCK YOU WANT TO.
