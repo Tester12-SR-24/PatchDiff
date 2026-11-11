@@ -10,7 +10,7 @@ HTML diff reports · built-in updater · GUI and CLI for **Windows**.
 
 | | |
 |:--|:--|
-| **Release** | `v1.2.0` |
+| **Release** | `v1.2.3` |
 | **Platform** | Windows x64 (WPF) |
 | **Runtime** | .NET 8 — self-contained, no install needed |
 | **Engine** | ILSpy (`ICSharpCode.Decompiler`) |
@@ -48,15 +48,15 @@ touching the game files themselves.
 |---|---|---|
 | 👁 | **Watch mode** | Point PatchDiff at one or more DLLs; it detects every update automatically (`FileSystemWatcher` + polling fallback), re-decompiles, and diffs against the baseline. |
 | ⚡ | **Compare mode** | One-shot diff of any two DLLs — `patchdiff compare old.dll new.dll`. |
-| 🔍 | **Decompiled diffs** | Full C# decompilation via `ICSharpCode.Decompiler` (the ILSpy engine), type-by-type with line-level side-by-side highlighting (DiffPlex). |
+| 🔍 | **Decompiled diffs** | Full C# decompilation via `ICSharpCode.Decompiler` (the ILSpy engine). The diff view uses collapsible per-type sections with line-delta badges (`+n` green / `−n` red / `~n` yellow) and a kind pill, plus **Expand all / Collapse all** controls. Inside each expanded section: refined side-by-side rows with line numbers, 3px left-edge accents, tinted text, and ellipsised long lines (no horizontal scrollbar). First section auto-expands. |
 | 🌳 | **Assembly browser** | ILSpy-style namespace → type → member tree with the decompiled source beside it; clicking a member scrolls to and highlights it; one-click *diff vs previous / current* and `.cs` export. |
 | 🗄 | **Revision archive** | Every version of every watched DLL is kept: a manifest per revision (SHA-256, assembly version, timestamp, type count) plus the original DLL bytes, so you can study or restore any old build. |
-| 🕘 | **History & restore** | Compare any two archived revisions, restore an old build with one click, and name revisions (e.g. *"Season 4 launch"*) so the history reads like a changelog. |
+| 🕘 | **History & restore** | Compare any two archived revisions, restore an old build with one click, and name revisions (e.g. *"Season 4 launch"*) so the history reads like a changelog. *Diff vs current* diffs the clicked revision against the baseline. |
 | 🔢 | **Revision matrix** | A grid of every archived revision; click a cell to compute that exact pair's diff, click again to open it. Compare any two versions, not just neighbours. |
 | 📄 | **HTML reports** | Self-contained, start-collapsed diff reports for every detected patch. |
 | 🔎 | **Type search** | Search every decompiled `.cs` file across all watched baselines at once. |
 | 💾 | **Persistence & auto-start** | Watch list, timeline, baselines and window state survive restarts; optional *Start with Windows* so a rebooted PC keeps watching. |
-| 📥 | **Built-in updater** | Help ▸ *Check for updates* follows the GitHub Releases feed — download, stage and apply on exit, with your data untouched. |
+| 📥 | **Built-in updater** | Help ▸ *Check for updates* follows the GitHub Releases feed — the full payload (exe + native DLLs) is applied to the install folder via robocopy mirror; the result is recorded and reported at next launch. Unchanged files keep their old dates (that is normal, not a failed update). |
 | 🔔 | **System tray** | Close-to-tray, tray menu and balloon alerts on detected patches; single-instance; drag & drop DLLs or folders. |
 
 <details>
@@ -81,13 +81,9 @@ Grab a build from the [Releases](../../releases) page — every `v*` tag ships p
 
 | Artifact | What it is |
 |---|---|
-| `PatchDiff-app-win-x64.zip` | **Desktop app** — the GUI, self-contained single exe |
-| `patchdiff-win-x64.zip` | **CLI** — self-contained single exe |
-
-1. Download and extract the zip.
-2. Run `PatchDiff.exe` (GUI) — no installer needed. Everything lives in
-   `%LOCALAPPDATA%\PatchDiff`.
-3. For the CLI, put `patchdiff.exe` somewhere on your `PATH`, or just run it from its folder.
+| `PatchDiff-setup-x.y.z.exe` | **Installer** — per-user, no admin required; directory chooser, desktop shortcut checkbox, Start-menu entry, uninstaller |
+| `PatchDiff-app-win-x64.zip` | **Desktop app** — extract the zip anywhere user-writable and run `PatchDiff.exe` |
+| `patchdiff-win-x64.zip` | **CLI** — extract and put `patchdiff.exe` somewhere on your `PATH` |
 
 Both are self-contained: **no .NET runtime install required**.
 
@@ -203,6 +199,10 @@ type counts and writes a self-contained HTML report.
    against the baseline (DiffPlex line-level side-by-side).
 4. **Report & archive** — an HTML report is written to `%LOCALAPPDATA%\PatchDiff\Reports`, the
    revision is archived, the baseline is updated, and the GUI timeline/log are notified.
+
+Every check saves the analyzed version as the new baseline, so each diff shows exactly
+one patch's changes — not a cumulative diff since the first version ever seen. Older
+changes live in History/Revisions, where they can be diffed against each other at any time.
 
 <details>
 <summary><b>🔎 Data layout</b></summary>
