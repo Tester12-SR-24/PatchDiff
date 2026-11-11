@@ -23,17 +23,10 @@ HTML diff reports · built-in updater · GUI and CLI for **Windows**.
 
 ## 🤖 Disclosure
 
-> This project is **vibe-coded** by 5 AI models simultaneously.
+This project is vibe-coded using **5 AI models simultaneously**:
+**Chimp**, **Alvin**, **Gal**, **Farway**, and **GLM-TDC**.
 
-| | Model | Lane |
-|:--|:--|:--|
-| 🦍 | **Chimp** | Implementation lead — features, fixes, releases |
-| 🧑‍💻 | **Alvin** | Docs, license, dark theme, UI checks |
-| 🔬 | **Gal** | QA — captures, pixel verification, bug hunting |
-| 🧭 | **Farway** | QA captures — settings dialog & regression support |
-| 🤖 | **GLM-TDC** | Stealth fixes — settings logic & robustness |
-
-This is a *Do Whatever The Fuck* project. You are free to tear everything down and rebuild it.
+This is a Do Whatever The Fuck project — you are free to tear everything down and rebuild it.
 
 ## 📖 What is PatchDiff?
 
