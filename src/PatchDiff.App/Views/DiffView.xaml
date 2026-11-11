@@ -104,7 +104,26 @@
                                         <TextBlock x:Name="Chevron" Text="▶" FontSize="9" Foreground="#9a9aa9"
                                                    VerticalAlignment="Center" Margin="0,1,9,0"/>
                                         <TextBlock Text="{Binding FullName}" FontWeight="SemiBold" FontSize="12.5"
-                                                   FontFamily="Segoe UI" VerticalAlignment="Center"/>
+                                                   FontFamily="Segoe UI" VerticalAlignment="Center"/><StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <Border Background="#22371F" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding AddBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding AddBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#7be495"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#3A2126" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding RemBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding RemBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#ff8fa0"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#39301A" CornerRadius="9" Padding="7,1" Margin="0,0,5,0"
+                                                    Visibility="{Binding ModBadge, Converter={StaticResource CollapsedWhenEmpty}}">
+                                                <TextBlock Text="{Binding ModBadge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#ffd166"
+                                                           FontFamily="Segoe UI"/>
+                                            </Border>
+                                            <Border Background="#26262b" BorderBrush="#33333a" BorderThickness="1" CornerRadius="9" Padding="7,1">
+                                                <TextBlock Text="{Binding Kind}" FontSize="10.5" Foreground="#9a9aa9" FontFamily="Segoe UI"/>
+                                            </Border>
+                                        </StackPanel>
                                         </StackPanel>
                                 </Border>
                                 <DataTemplate.Triggers>
