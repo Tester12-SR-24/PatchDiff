@@ -50,6 +50,12 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq libx11-6 libice6 libsm6 libfontconfig1
 
       - name: Publish CLI
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet publish src/PatchDiff.Cli -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:InformationalVersion=$env:version -p:IncludeSourceRevisionInInformationalVersion=false -o "publish\win-x64\cli"
+
+      - name: Publish CLI (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: >
           dotnet publish src/PatchDiff.Cli -c Release -r ${{ matrix.rid }}
@@ -59,7 +65,13 @@ jobs:
           -p:IncludeSourceRevisionInInformationalVersion=false
           -o "publish/${{ matrix.rid }}/cli"
 
-      - name: Publish App (Avalonia)
+      - name: Publish App (Avalonia, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet publish src/PatchDiff.AppA -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:InformationalVersion=$env:version -p:IncludeSourceRevisionInInformationalVersion=false -o "publish\win-x64\app"
+
+      - name: Publish App (Avalonia, Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: >
           dotnet publish src/PatchDiff.AppA -c Release -r ${{ matrix.rid }}
