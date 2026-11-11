@@ -55,6 +55,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          overwrite_files: true
           files: |
             patchdiff-win-x64.zip
             PatchDiff-win-x64.zip
@@ -103,6 +104,7 @@ jobs:
           [Desktop Entry]
           Name=PatchDiff
           Exec=PatchDiff
+          Icon=patchdiff
           Type=Application
           Categories=Development;
           Comment=Watch game DLLs and see what a patch changed
@@ -121,6 +123,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          overwrite_files: true
           files: |
             ${{ matrix.tar }}
             ${{ matrix.appimage }}
