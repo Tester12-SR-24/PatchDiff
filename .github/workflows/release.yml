@@ -21,7 +21,7 @@ jobs:
           dotnet publish src/PatchDiff.Cli -c Release -r win-x64
           --self-contained true
           -p:PublishSingleFile=true -p:PublishTrimmed=false
-          -p:InformationalVersion=1.2.0 -p:IncludeSourceRevisionInInformationalVersion=false
+          -p:InformationalVersion=1.2.1 -p:IncludeSourceRevisionInInformationalVersion=false
           -o dist/cli
 
       - name: Publish WPF app (self-contained single file)
@@ -29,7 +29,7 @@ jobs:
           dotnet publish src/PatchDiff.App -c Release -r win-x64
           --self-contained true
           -p:PublishSingleFile=true -p:PublishTrimmed=false
-          -p:InformationalVersion=1.2.0 -p:IncludeSourceRevisionInInformationalVersion=false
+          -p:InformationalVersion=1.2.1 -p:IncludeSourceRevisionInInformationalVersion=false
           -o dist/app
 
       - name: Archive
