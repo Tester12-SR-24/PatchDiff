@@ -318,30 +318,9 @@ public partial class MainWindow : Window
         var view = new HistoryView(w);
         view.DiffRequested += diff => Dispatcher.UIThread.Post(() =>
             AddTab($"Diff — {w.Name} (history)", new DiffView(diff)));
-        view.MatrixRequested += watch => Dispatcher.UIThread.Post(() => OpenMatrixTab(watch));
         AddTab($"History — {w.Name}", view);
     }
 
-    void OpenMatrixTab(WatchedDll w)
-    {
-        var store = new RevisionStore();
-        var revs = new List<AssemblySnapshot>();
-        foreach (var r in store.List(w.Path))
-        {
-            var snap = store.LoadRevision(w.Path, r.Sha256);
-            if (snap is not null)
-                revs.Add(snap);
-        }
-        if (revs.Count < 2)
-        {
-            AddLog($"Revision matrix needs at least two archived revisions — {w.Name} has {revs.Count}.");
-            return;
-        }
-        var view = new MatrixView(w, revs);
-        view.DiffRequested += (diff, label) => Dispatcher.UIThread.Post(() =>
-            AddTab($"Diff — {w.Name} ({label})", new DiffView(diff)));
-        AddTab($"Matrix — {w.Name}", view);
-    }
 
     WatchedDll? SelectedWatch => WatchedList.SelectedItem as WatchedDll;
 

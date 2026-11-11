@@ -1,0 +1,96 @@
+<UserControl x:Class="PatchDiff.Views.DiffView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:PatchDiff"
+             xmlns:views="using:PatchDiff.Views"
+             Background="#1e1e22">
+  <UserControl.Resources>
+    <local:KindToBrushConverter x:Key="OldBrush" />
+    <local:KindToNewBrushConverter x:Key="NewBrush" />
+    <local:NotEmptyToBoolConverter x:Key="NotEmpty" />
+    <local:NotEmptyToBoolConverter x:Key="Not" />
+
+    <!-- Row template: one line = one paired old/new line. -->
+    <DataTemplate x:Key="RowTemplate" DataType="views:DiffRowVm">
+      <Grid ColumnDefinitions="34,*,34,*" Margin="0,0,0,0">
+        <TextBlock Grid.Column="0" Text="{Binding OldNo}" FontFamily="Consolas" FontSize="11"
+                   Foreground="#54545e" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
+        <Border Grid.Column="1" Background="{Binding OldKind, Converter={StaticResource OldBrush}}"
+                Padding="6,0" MinHeight="19" VerticalAlignment="Stretch" MinWidth="{Binding MinWidth}">
+          <TextBlock Text="{Binding OldText}" FontFamily="Consolas" FontSize="11.5"
+                     Foreground="#cdd3de" VerticalAlignment="Center" />
+        </Border>
+        <TextBlock Grid.Column="2" Text="{Binding NewNo}" FontFamily="Consolas" FontSize="11"
+                   Foreground="#54545e" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
+        <Border Grid.Column="3" Background="{Binding NewKind, Converter={StaticResource NewBrush}}"
+                Padding="6,0" MinHeight="19" VerticalAlignment="Stretch" MinWidth="{Binding MinWidth}">
+          <TextBlock Text="{Binding NewText}" FontFamily="Consolas" FontSize="11.5"
+                     Foreground="#cdd3de" VerticalAlignment="Center" />
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Section header: badge pills + name + chevron. -->
+    <DataTemplate x:Key="SectionTemplate" DataType="views:SectionVm">
+      <StackPanel Spacing="0">
+        <Button Classes="DiffSection" Click="OnToggleSection" Padding="0" MinHeight="30">
+          <Border Background="#26262b" Padding="10,5">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*">
+              <TextBlock Text="{Binding ChevronText}" Foreground="#8a8a95" FontFamily="Consolas" FontSize="12" Margin="0,0,8,0" />
+              <TextBlock Grid.Column="1" Text="{Binding AddBadge}" FontSize="10.5" FontWeight="SemiBold"
+                         Foreground="#8fe0a0" Background="#1e3a2a" Padding="6,1" Margin="0,0,6,0"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding AddBadge, Converter={StaticResource NotEmpty}}" />
+              <TextBlock Grid.Column="2" Text="{Binding DelBadge}" FontSize="10.5" FontWeight="SemiBold"
+                         Foreground="#ffb0b0" Background="#3a1e1e" Padding="6,1" Margin="0,0,6,0"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding DelBadge, Converter={StaticResource NotEmpty}}" />
+              <TextBlock Grid.Column="3" Text="{Binding ModBadge}" FontSize="10.5" FontWeight="SemiBold"
+                         Foreground="#ffe0a0" Background="#3a2f1e" Padding="6,1" Margin="0,0,6,0"
+                         VerticalAlignment="Center"
+                         IsVisible="{Binding ModBadge, Converter={StaticResource NotEmpty}}" />
+              <TextBlock Grid.Column="4" Text="{Binding FullName}" FontFamily="Consolas" FontSize="11.5"
+                         Foreground="#7fb2e8" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </Grid>
+          </Border>
+        </Button>
+        <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource RowTemplate}"
+                      IsVisible="{Binding IsExpanded}" />
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,8">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+          <Button Content="Expand all" Click="OnExpandAll" Padding="8,3" FontSize="11" />
+          <Button Content="Collapse all" Click="OnCollapseAll" Padding="8,3" FontSize="11" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="13" />
+          <TextBlock x:Name="MetaText" FontSize="10.5" Foreground="#9a9aa9" Margin="0,2,0,0" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="10,6">
+      <TextBox x:Name="FilterBox" Watermark="Filter types…" TextChanged="OnFilter"
+               Background="#1b1b1f" BorderThickness="0" Padding="6,4" FontSize="11" />
+    </Border>
+
+    <Grid ColumnDefinitions="16,*,16,28">
+      <TextBlock Grid.Column="0" Text="PREV" FontSize="10" Foreground="#8a8a95" Margin="0,6,0,0"
+                 HorizontalAlignment="Center" VerticalAlignment="Top" />
+      <TextBlock Grid.Column="2" Text="NOW" FontSize="10" Foreground="#8a8a95" Margin="0,6,0,0"
+                 HorizontalAlignment="Center" VerticalAlignment="Top" />
+
+      <ListBox x:Name="DiffList" Grid.Column="1" Grid.ColumnSpan="3"
+               Background="#1b1b1f" BorderThickness="0" Padding="0"
+               ItemTemplate="{StaticResource SectionTemplate}"
+               SelectionMode="Single"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto"
+               ScrollViewer.VerticalScrollBarVisibility="Visible" />
+    </Grid>
+  </DockPanel>
+</UserControl>

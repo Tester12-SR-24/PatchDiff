@@ -3,12 +3,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="#1e1e22"
              TextElement.Foreground="#e6e6e6">
-    <DockPanel Margin="12">
-        <TextBlock DockPanel.Dock="Top" x:Name="TypeNameText" FontWeight="SemiBold" FontSize="14" Margin="0,8,0,2"/>
-        <TextBlock DockPanel.Dock="Top" x:Name="AssemblyText" FontSize="11" Foreground="#9a9aa9" Margin="0,0,0,8"/>
+    <DockPanel Margin="0">
+        <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,8">
+            <StackPanel>
+                <TextBlock x:Name="TypeNameText" FontWeight="SemiBold" FontSize="13" Foreground="#e6e6e6" Margin="0,0,0,2"/>
+                <TextBlock x:Name="AssemblyText" FontSize="10.5" Foreground="#9a9aa4"/>
+            </StackPanel>
+        </Border>
         <TextBox x:Name="SourceText" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas" FontSize="12"
                  Background="#1b1b1f" BorderThickness="0" Padding="10,8"
                  HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                 CaretBrush="#4cc2ff" SelectionBrush="#3a5a8a"/>
+                 CaretBrush="#4cc2ff" SelectionBrush="#3a5a8a" Foreground="#d5d5e0"/>
     </DockPanel>
 </UserControl>

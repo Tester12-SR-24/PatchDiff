@@ -1,16 +1,15 @@
-using System.Windows;
-using System.Windows.Controls;
-using UserControl = System.Windows.Controls.UserControl;
+using Avalonia.Controls;
+using System.IO;
 
-namespace PatchDiff;
+namespace PatchDiff.Views;
 
 public partial class SourcePane : UserControl
 {
     public SourcePane(string typeName, string source, string assemblyName)
     {
-        InitializeComponent();
+        Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(this);
         TypeNameText.Text = typeName;
-        AssemblyText.Text = assemblyName;
+        MetaText.Text = assemblyName;
         SourceText.Text = source;
     }
 }

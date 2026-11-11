@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #1e1e22; --panel: #1b1b1f; --panel2: #26262b; --border: #33333a;
+    --text: #e6e6e6; --muted: #9a9aa9; --accent: #569cd6;
+    --green-bg: rgba(123,228,149,.12); --green-tx: #7be495;
+    --red-bg: rgba(255,143,160,.10); --red-tx: #ff8fa0;
+    --yellow-tx: #ffd166;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #161619; color: var(--text); font-family: 'Segoe UI', sans-serif; padding: 24px; }
+  h1 { font-size: 15px; font-weight: 600; margin: 4px 0 2px; }
+  p.sub { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+  .mock { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 36px; }
+  .mock-label { background: #0f0f12; padding: 8px 14px; font-size: 12px; color: #8a8a95; border-bottom: 1px solid var(--border); letter-spacing: .4px; }
+  .mock-label b { color: #cfcfda; }
+  .mono { font-family: Consolas, 'Cascadia Mono', monospace; }
+
+  /* shared bits */
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 10.5px; font-weight: 600; }
+  .chip.mod { background: rgba(255,209,102,.15); color: var(--yellow-tx); }
+  .stat { font-size: 11.5px; font-weight: 600; }
+  .stat.g { color: var(--green-tx); } .stat.r { color: var(--red-tx); } .stat.y { color: var(--yellow-tx); }
+
+  /* ============ MOCK 1: unified diff ============ */
+  .m1 { background: var(--bg); }
+  .m1 .head { padding: 12px 16px 10px; background: var(--panel2); border-bottom: 1px solid var(--border); }
+  .m1 .head .t { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .m1 .rows { font-size: 12px; line-height: 19px; }
+  .m1 .ln { display: flex; }
+  .m1 .ln .gut { width: 34px; flex: none; text-align: right; padding-right: 10px; color: #5b5b66; user-select: none; font-size: 10.5px; line-height: 19px; padding-top: 1px;}
+  .m1 .ln .sign { width: 18px; flex: none; text-align: center; font-weight: 700; }
+  .m1 .ln.add { background: var(--green-bg); }
+  .m1 .ln.add .sign, .m1 .ln.add .gut { color: var(--green-tx); }
+  .m1 .ln.rem { background: var(--red-bg); }
+  .m1 .ln.rem .sign, .m1 .ln.rem .gut { color: var(--red-tx); }
+  .m1 .ln .code { white-space: pre; color: #cfd3dc; }
+  .m1 .ln.add .code { color: #b8ecc4; }
+  .m1 .ln.rem .code { color: #f3c1ca; }
+  .m1 .hunk { padding: 3px 0 3px 0; background: #232329; color: #7d7d8a; font-size: 10.5px; padding-left: 62px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .m1 .scroll { height: 10px; background: var(--panel2); position: relative; }
+  .m1 .scroll .thumb { position: absolute; left: 0; width: 45%; height: 10px; background: #6a6e7b; border-radius: 0 5px 5px 0; }
+
+  /* ============ MOCK 2: side-by-side refined ============ */
+  .m2 { background: var(--bg); }
+  .m2 .head { padding: 12px 16px 10px; background: var(--panel2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .m2 .head .t { font-size: 13px; font-weight: 600; }
+  .m2 .cols { display: flex; font-size: 12px; }
+  .m2 .col { flex: 1; min-width: 0; }
+  .m2 .col + .col { border-left: 1px solid var(--border); }
+  .m2 .col .chead { padding: 6px 12px; background: #202025; color: var(--muted); font-size: 11px; font-weight: 600; border-bottom: 1px solid var(--border); }
+  .m2 .line { display: flex; line-height: 19px; }
+  .m2 .line .ln { width: 30px; flex: none; text-align: right; padding-right: 8px; color: #55555f; font-size: 10.5px; padding-top: 1px; user-select: none; }
+  .m2 .line .tx { white-space: pre; overflow: hidden; text-overflow: ellipsis; color: #cfd3dc; }
+  .m2 .line { border-left: 3px solid transparent; padding-left: 4px; }
+  .m2 .line.add { border-left-color: var(--green-tx); background: var(--green-bg); }
+  .m2 .line.add .tx { color: #b8ecc4; }
+  .m2 .line.rem { border-left-color: var(--red-tx); background: var(--red-bg); }
+  .m2 .line.rem .tx { color: #f3c1ca; }
+  .m2 .scroll { height: 10px; background: var(--panel2); position: relative; }
+  .m2 .scroll .thumb { position: absolute; left: 0; width: 38%; height: 10px; background: #6a6e7b; border-radius: 0 5px 5px 0; }
+
+  /* ============ MOCK 3: hunk cards ============ */
+  .m3 { background: var(--bg); padding-bottom: 8px; }
+  .m3 .head { padding: 12px 16px 10px; background: var(--panel2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .m3 .head .t { font-size: 13px; font-weight: 600; flex: 1; }
+  .m3 .cards { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .m3 .card { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); overflow: hidden; }
+  .m3 .card .chead { padding: 7px 12px; background: #202025; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .m3 .card .chead .at { color: var(--accent); }
+  .m3 .block { padding: 6px 0; font-size: 12px; line-height: 19px; }
+  .m3 .block .lbl { font-size: 9.5px; letter-spacing: 1px; font-weight: 700; padding: 0 12px 2px; }
+  .m3 .block.old { background: var(--red-bg); border-left: 3px solid var(--red-tx); }
+  .m3 .block.old .lbl { color: var(--red-tx); }
+  .m3 .block.old .code { color: #f3c1ca; }
+  .m3 .block.new { background: var(--green-bg); border-left: 3px solid var(--green-tx); margin-top: 1px; }
+  .m3 .block.new .lbl { color: var(--green-tx); }
+  .m3 .block.new .code { color: #b8ecc4; }
+  .m3 .block .code { white-space: pre; padding-left: 12px; }
+  .m3 .ctx { text-align: center; font-size: 11px; color: #6a6a75; padding: 3px 0; border-top: 1px dashed var(--border); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<h1>PatchDiff — diff view restyle: 3 mockups</h1>
+<p class="sub">Real content from Assembly-CSharp.dll (ActionBarManager / ChatBehaviour). All three replace the full-width highlight bars that swallowed the text in the old build.</p>
+
+<!-- MOCK 1 -->
+<div class="mock m1">
+  <div class="mock-label">MOCK 1 — <b>Unified diff</b> · one column, GitHub-style · most compact, zero alignment issues possible</div>
+  <div class="head">
+    <div class="t">ActionBarManager <span class="chip mod">MODIFIED</span></div>
+    <span class="stat g">+2 added</span>&nbsp;&nbsp;<span class="stat r">−2 removed</span>&nbsp;&nbsp;<span class="stat y">~1 modified</span>
+  </div>
+  <div class="rows mono">
+    <div class="hunk">@@ ActionBarManager.cs · method Register(string) @@</div>
+    <div class="ln"><div class="gut">41</div><div class="sign"></div><div class="code">        public void Register(string name)</div></div>
+    <div class="ln"><div class="gut">42</div><div class="sign"></div><div class="code">        {</div></div>
+    <div class="ln"><div class="gut">43</div><div class="sign"></div><div class="code">            _actions.Add(name);</div></div>
+    <div class="ln add"><div class="gut">44</div><div class="sign">+</div><div class="code">            _ticks++;</div></div>
+    <div class="ln rem"><div class="gut">44</div><div class="sign">−</div><div class="code">            _version++;</div></div>
+    <div class="ln"><div class="gut">45</div><div class="sign"></div><div class="code">        }</div></div>
+    <div class="hunk">@@ ChatBehaviour.cs · field declarations @@</div>
+    <div class="ln"><div class="gut">12</div><div class="sign"></div><div class="code">        [SyncVar]</div></div>
+    <div class="ln"><div class="gut">13</div><div class="sign"></div><div class="code">        public bool _chatBubbleEnabled = false;</div></div>
+    <div class="ln add"><div class="gut">16</div><div class="sign">+</div><div class="code">        public float _textFadeTimer = 0f;</div></div>
+    <div class="ln"><div class="gut">17</div><div class="sign"></div><div class="code">        public float _logicFadeTimer = 0f;</div></div>
+  </div>
+  <div class="scroll"><div class="thumb"></div></div>
+</div>
+
+<!-- MOCK 2 -->
+<div class="mock m2">
+  <div class="mock-label">MOCK 2 — <b>Side-by-side, refined</b> · same two columns you have now · highlight = thin left edge, not a full-width bar</div>
+  <div class="head">
+    <div class="t">ActionBarManager</div>
+    <span class="chip mod">MODIFIED</span>
+    <span class="stat g">+2</span>&nbsp;<span class="stat r">−2</span>&nbsp;<span class="stat y">~1</span>
+  </div>
+  <div class="cols mono">
+    <div class="col">
+      <div class="chead">Previous version</div>
+      <div class="line"><div class="ln">41</div><div class="tx">public void Register(string name)</div></div>
+      <div class="line"><div class="ln">42</div><div class="tx">{</div></div>
+      <div class="line rem"><div class="ln">43</div><div class="tx">    _version++;</div></div>
+      <div class="line"><div class="ln">44</div><div class="tx">    _actions.Add(name);</div></div>
+      <div class="line"><div class="ln">45</div><div class="tx">}</div></div>
+      <div class="line"><div class="ln">46</div><div class="tx"></div></div>
+      <div class="line rem"><div class="ln">47</div><div class="tx">public float _fadeTimer = 0f;</div></div>
+      <div class="line add"><div class="ln">—</div><div class="tx"></div></div>
+    </div>
+    <div class="col">
+      <div class="chead">New version</div>
+      <div class="line"><div class="ln">41</div><div class="tx">public void Register(string name)</div></div>
+      <div class="line"><div class="ln">42</div><div class="tx">{</div></div>
+      <div class="line add"><div class="ln">43</div><div class="tx">    _ticks++;</div></div>
+      <div class="line"><div class="ln">44</div><div class="tx">    _actions.Add(name);</div></div>
+      <div class="line"><div class="ln">45</div><div class="tx">}</div></div>
+      <div class="line"><div class="ln">46</div><div class="tx"></div></div>
+      <div class="line add"><div class="ln">47</div><div class="tx">public float _textFadeTimer = 0f;</div></div>
+      <div class="line add"><div class="ln">48</div><div class="tx">public float _logicFadeTimer = 0f;</div></div>
+    </div>
+  </div>
+  <div class="scroll"><div class="thumb"></div></div>
+</div>
+
+<!-- MOCK 3 -->
+<div class="mock m3">
+  <div class="mock-label">MOCK 3 — <b>Patch-feed cards</b> · each change is a card: red "before" block, green "after" block · reads like a changelog</div>
+  <div class="head">
+    <div class="t">ActionBarManager</div>
+    <span class="chip mod">MODIFIED</span>
+    <span class="stat y">3 hunks</span>
+  </div>
+  <div class="cards mono">
+    <div class="card">
+      <div class="chead">HUNK 1 · <span class="at">Register(string)</span> · 1 line replaced</div>
+      <div class="block old"><div class="lbl">BEFORE</div><div class="code">_version++;</div></div>
+      <div class="block new"><div class="lbl">AFTER</div><div class="code">_ticks++;</div></div>
+    </div>
+    <div class="card">
+      <div class="chead">HUNK 2 · <span class="at">ChatBehaviour fields</span> · 1 line added</div>
+      <div class="block new"><div class="lbl">ADDED</div><div class="code">public float _textFadeTimer = 0f;</div></div>
+      <div class="ctx">⋯ 4 unchanged lines ⋯</div>
+    </div>
+    <div class="card">
+      <div class="chead">HUNK 3 · <span class="at">Unregister(string)</span> · 1 line removed</div>
+      <div class="block old"><div class="lbl">REMOVED</div><div class="code">_actions.Remove(name);</div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
