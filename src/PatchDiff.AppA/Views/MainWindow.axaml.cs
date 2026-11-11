@@ -44,6 +44,12 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        try
+        {
+            var assets = Avalonia.Platform.AssetLoader.Open(new Uri("avares://PatchDiff/Assets/icon-512.png"));
+            Icon = new Avalonia.Controls.WindowIcon(new Avalonia.Media.Imaging.Bitmap(assets));
+        }
+        catch { /* icon is cosmetic — never block startup */ }
         WatchedList.ItemsSource = _mgr.Watched;
         LogList.ItemsSource = _logLines;
         TimelineList.ItemsSource = Timeline;

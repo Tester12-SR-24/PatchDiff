@@ -27,4 +27,10 @@
     <ProjectReference Include="..\PatchDiff.Core\PatchDiff.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\icon-512.png" />
+    <AvaloniaResource Include="Assets\icon-256.png" />
+    <AvaloniaResource Include="Assets\icon-128.png" />
+  </ItemGroup>
+
 </Project>
