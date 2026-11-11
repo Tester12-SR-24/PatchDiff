@@ -149,7 +149,7 @@
                             <DataTemplate DataType="{x:Type views:SectionVm}">
                                 <Border Background="#202025" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,7,12,7"
                                         PreviewMouseLeftButtonDown="OnSectionClick" Cursor="Hand">
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" Opacity="0" IsHitTestVisible="False">
                                         <TextBlock x:Name="Chevron" Text="▶" FontSize="9" Foreground="#9a9aa9"
                                                    VerticalAlignment="Center" Margin="0,1,9,0"/>
                                         <TextBlock Text="{Binding FullName}" FontWeight="SemiBold" FontSize="12.5"
