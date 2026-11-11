@@ -1,0 +1,15 @@
+<UserControl x:Class="PatchDiff.Views.SourcePane"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#1e1e22">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,8">
+      <StackPanel>
+        <TextBlock x:Name="TypeNameText" FontWeight="SemiBold" FontSize="13" />
+        <TextBlock x:Name="MetaText" FontSize="10.5" Foreground="#9a9aa4" Margin="0,2,0,0" />
+      </StackPanel>
+    </Border>
+    <TextBox x:Name="SourceText" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+             FontFamily="Consolas" FontSize="12" Background="#1b1b1f" BorderThickness="0" Padding="10,8" />
+  </DockPanel>
+</UserControl>

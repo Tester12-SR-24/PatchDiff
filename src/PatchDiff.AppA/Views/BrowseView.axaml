@@ -1,0 +1,35 @@
+<UserControl x:Class="PatchDiff.Views.BrowseView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:PatchDiff.Views"
+             Background="#1e1e22">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,8">
+      <StackPanel>
+        <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="13" />
+        <TextBlock x:Name="MetaText" FontSize="10.5" Foreground="#9a9aa9" Margin="0,2,0,0" />
+      </StackPanel>
+    </Border>
+    <Grid ColumnDefinitions="300,4,*">
+      <Grid RowDefinitions="*,Auto">
+        <TextBox x:Name="TreeFilter" Watermark="Filter types…" Grid.Row="0" Margin="8,8,8,0"
+                 TextChanged="OnFilter" Background="#1b1b1f" BorderThickness="0" Padding="6,4" FontSize="11" />
+        <TreeView x:Name="TypeTree" Grid.Row="0" Margin="8,8,8,8" Background="#1b1b1f" BorderThickness="0"
+                  SelectionChanged="OnTreeSelection">
+          <TreeView.DataTemplates>
+            <TreeDataTemplate ItemsSource="{Binding Children}" DataType="views:ExplorerNode">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding Glyph}" FontFamily="Consolas" Foreground="#8a8a95" />
+                <TextBlock Text="{Binding Header}" />
+              </StackPanel>
+            </TreeDataTemplate>
+          </TreeView.DataTemplates>
+        </TreeView>
+      </Grid>
+      <GridSplitter Grid.Column="1" Width="4" Background="#33333a" ResizeBehavior="CurrentAndNext" />
+      <TextBox x:Name="SourceText" Grid.Column="2" Margin="0,8,8,8" IsReadOnly="True" AcceptsReturn="True"
+               TextWrapping="NoWrap" FontFamily="Consolas" FontSize="12" Background="#1b1b1f"
+               BorderThickness="0" Padding="10,8" CaretBrush="#4cc2ff" />
+    </Grid>
+  </DockPanel>
+</UserControl>

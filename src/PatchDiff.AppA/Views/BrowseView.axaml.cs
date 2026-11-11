@@ -1,12 +1,11 @@
-using System.IO;
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using PatchDiff.Models;
 using PatchDiff.Services;
-using UserControl = System.Windows.Controls.UserControl;
-using Brush = System.Windows.Media.Brush;
-using MessageBox = System.Windows.MessageBox;
-using MessageBoxButton = System.Windows.MessageBoxButton;
+using System.Diagnostics;
+using System.IO;
 
 namespace PatchDiff.Views;
 
@@ -14,7 +13,7 @@ public partial class BrowseView : UserControl
 {
     readonly AssemblySnapshot _snapshot;
     readonly WatchedDll _watch;
-    Window _owner => Window.GetWindow(this)!;
+    ExplorerNode? _root;
 
     public event Action<AssemblyDiffResult>? DiffRequested;
 
@@ -25,20 +24,20 @@ public partial class BrowseView : UserControl
         _watch = watch;
 
         var name = Path.GetFileName(snapshot.AssemblyPath);
-        SourceMeta.Text = $"v{snapshot.AssemblyVersion} · {snapshot.Types.Count} types · baseline {snapshot.Sha256[..12]}…";
+        TitleText.Text = name;
+        MetaText.Text = $"v{snapshot.AssemblyVersion} · {snapshot.Types.Count} types · baseline {snapshot.Sha256[..12]}…";
 
-        Loaded += async (_, _) =>
+        _ = Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var snap = _snapshot;
-            var (root, firstType) = await System.Threading.Tasks.Task.Run(() => BuildTree(snap));
+            var (root, firstType) = await Task.Run(() => BuildTree(snapshot));
+            _root = root;
             TypeTree.ItemsSource = new[] { root };
             root.IsExpanded = true;
             if (firstType is not null)
             {
-                TypeTree.UpdateLayout();
-                TypeTree.SelectItem(firstType);
+                TypeTree.SelectedItem = firstType;
             }
-        };
+        });
     }
 
     static string Short(string? fullName)
@@ -61,7 +60,6 @@ public partial class BrowseView : UserControl
         var root = new ExplorerNode
         {
             Kind = "Assembly",
-            Glyph = "",
             Header = $"{Path.GetFileName(snapshot.AssemblyPath)} — {snapshot.Types.Count} types",
             IsExpanded = true,
         };
@@ -152,91 +150,130 @@ public partial class BrowseView : UserControl
         return parts.Length > 0 ? parts[^1] : trimmed;
     }
 
-    ExplorerNode? SelectedNode => TypeTree.SelectedItem as ExplorerNode;
-
-    void OnTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    void OnTreeSelection(object? sender, SelectionChangedEventArgs e)
     {
-        if (e.NewValue is not ExplorerNode node || node.Source is null)
+        if (e.AddedItems.Count == 0 || e.AddedItems[0] is not ExplorerNode node || node.Source is null)
             return;
 
-        SourceHeader.Text = node.FullName ?? node.Header;
-        SourceMeta.Text = $"{_watch.Name} · decompiled baseline";
         SourceText.Text = node.Source;
-        SourceText.ScrollToHome();
-
         if (node.Highlight is { Length: > 0 } member)
         {
-            var idx = SourceText.Text.IndexOf(member, StringComparison.Ordinal);
+            var idx = node.Source.IndexOf(member, StringComparison.Ordinal);
             if (idx >= 0)
             {
-                SourceText.Select(idx, member.Length);
                 SourceText.CaretIndex = idx;
-                SourceText.ScrollToLine(SourceText.GetLineIndexFromCharacterIndex(idx));
+                SourceText.SelectionStart = idx;
+                SourceText.SelectionEnd = idx + member.Length;
             }
         }
     }
 
-    void OnDiffPrev(object sender, RoutedEventArgs e) => RequestDiff(againstCurrent: false);
-    void OnDiffCurrent(object sender, RoutedEventArgs e) => RequestDiff(againstCurrent: true);
-
-    void RequestDiff(bool againstCurrent)
+    void OnFilter(object? sender, RoutedEventArgs e)
     {
+        if (_root is null) return;
+        var q = TreeFilter.Text?.Trim() ?? "";
+        if (q.Length == 0)
+        {
+            TypeTree.ItemsSource = new[] { _root };
+            return;
+        }
+        var root = new ExplorerNode
+        {
+            Kind = "Assembly",
+            Header = $"Filter: {q}",
+            IsExpanded = true,
+        };
+        foreach (var ns in _root.Children)
+        {
+            var nsNode = new ExplorerNode { Kind = "Namespace", Glyph = "▭", Header = ns.Header, IsExpanded = true };
+            foreach (var type in ns.Children.Where(t => t.Header?.Contains(q, StringComparison.OrdinalIgnoreCase) == true))
+                nsNode.Children.Add(type);
+            if (nsNode.Children.Count > 0)
+                root.Children.Add(nsNode);
+        }
+        TypeTree.ItemsSource = new[] { root };
+    }
+
+    async void OnDiffCurrent(object? sender, RoutedEventArgs e)
+    {
+        var w = _watch;
         try
         {
             var store = new RevisionStore();
-            var revs = store.List(_watch.Path).OrderBy(r => r.CapturedUtc).ToList();
+            var revs = store.List(w.Path).OrderBy(r => r.CapturedUtc).ToList();
             if (revs.Count < 1)
             {
-                MessageBox.Show(_owner, "No revisions archived yet for this DLL.", "PatchDiff");
+                MessageBox.Show($"No revisions archived yet for this DLL.", "PatchDiff");
                 return;
             }
 
-            var newSnap = againstCurrent
-                ? SnapshotStore.Load(_watch.Path) ?? _snapshot
-                : _snapshot;
-            var oldSnap = newSnap;
-            if (againstCurrent)
-            {
-                var prev = revs.FirstOrDefault(r => r.Sha256 != newSnap.Sha256);
-                oldSnap = prev is null ? newSnap : store.LoadRevision(_watch.Path, prev.Sha256) ?? newSnap;
-            }
-            else
-            {
-                var idx = revs.FindIndex(r => r.Sha256 == newSnap.Sha256);
-                oldSnap = idx > 0 ? store.LoadRevision(_watch.Path, revs[idx - 1].Sha256) ?? newSnap : newSnap;
-            }
+            var newSnap = SnapshotStore.Load(w.Path) ?? _snapshot;
+            var prev = revs.FirstOrDefault(r => r.Sha256 != newSnap.Sha256);
+            var oldSnap = prev is null ? newSnap : store.LoadRevision(w.Path, prev.Sha256) ?? newSnap;
 
             var diff = new DiffService().Compare(oldSnap, newSnap,
-                title: $"{Path.GetFileName(_watch.Path)} ({oldSnap.AssemblyVersion} → {newSnap.AssemblyVersion})");
-    
+                title: $"{Path.GetFileName(w.Path)} ({oldSnap.AssemblyVersion} → {newSnap.AssemblyVersion})");
             if (diff.HasChanges)
                 DiffRequested?.Invoke(diff);
             else
-                MessageBox.Show(_owner, "No type changes between those revisions.", "PatchDiff");
+                MessageBox.Show("No type changes between those revisions.");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(_owner, $"Compare failed: {ex.Message}", "PatchDiff");
+            MessageBox.Show($"Compare failed: {ex.Message}");
         }
     }
 
-    void OnExportSingle(object sender, RoutedEventArgs e)
+    async void OnDiffPrev(object? sender, RoutedEventArgs e)
     {
-        if (SelectedNode is not { Kind: "Type" } node || node.FullName is null)
+        var w = _watch;
+        try
         {
-            MessageBox.Show(_owner, "Select a type first.", "PatchDiff");
+            var store = new RevisionStore();
+            var revs = store.List(w.Path).OrderBy(r => r.CapturedUtc).ToList();
+            if (revs.Count < 1)
+            {
+                MessageBox.Show("No revisions archived yet for this DLL.");
+                return;
+            }
+
+            var newSnap = _snapshot;
+            var idx = revs.FindIndex(r => r.Sha256 == newSnap.Sha256);
+            var oldSnap = idx > 0 ? store.LoadRevision(w.Path, revs[idx - 1].Sha256) ?? newSnap : newSnap;
+
+            var diff = new DiffService().Compare(oldSnap, newSnap,
+                title: $"{Path.GetFileName(w.Path)} ({oldSnap.AssemblyVersion} → {newSnap.AssemblyVersion})");
+            if (diff.HasChanges)
+                DiffRequested?.Invoke(diff);
+            else
+                MessageBox.Show("No type changes between those revisions.");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Compare failed: {ex.Message}");
+        }
+    }
+
+    async void OnExportSingle(object? sender, RoutedEventArgs e)
+    {
+        if (TypeTree.SelectedItem is not ExplorerNode node || node.FullName is null)
+        {
+            MessageBox.Show("Select a type first.");
             return;
         }
-        var dlg = new Microsoft.Win32.SaveFileDialog
+        var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storage is null) return;
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export decompiled type as…",
-            InitialDirectory = Path.GetDirectoryName(_watch.Path),
-            FileName = MainWindow.ExportFileName(node.FullName),
-            Filter = "C# source (*.cs)|*.cs",
-        };
-        if (dlg.ShowDialog(_owner) != true)
-            return;
-        File.WriteAllText(dlg.FileName, node.Source);
+            DefaultExtension = ".cs",
+            SuggestedFileName = MainWindow.ExportFileName(node.FullName),
+            FileTypeChoices = new[] { new FilePickerFileType("C# source") { Patterns = new[] { "*.cs" } } },
+        });
+        if (file is null) return;
+        await using var stream = await file.OpenWriteAsync();
+        using var writer = new StreamWriter(stream);
+        await writer.WriteAsync(node.Source ?? "");
     }
 }
 
@@ -248,32 +285,7 @@ public sealed class ExplorerNode
     public string? FullName { get; init; }
     public string? Source { get; init; }
     public string? Highlight { get; init; }
-    public List<ExplorerNode> Children { get; } = new();
     public bool IsExpanded { get; set; }
-}
-
-public static class TreeViewHelper
-{
-    public static void SelectItem(this System.Windows.Controls.TreeView tree, object item)
-    {
-        SelectItem(tree.ItemContainerGenerator, item);
-    }
-
-    static void SelectItem(System.Windows.Controls.ItemContainerGenerator generator, object item)
-    {
-        if (generator.ContainerFromItem(item) is System.Windows.Controls.TreeViewItem container)
-        {
-            container.IsSelected = true;
-            return;
-        }
-        foreach (object obj in generator.Items)
-        {
-            if (generator.ContainerFromItem(obj) is System.Windows.Controls.TreeViewItem parent)
-            {
-                parent.IsExpanded = true;
-                parent.UpdateLayout();
-                SelectItem(parent.ItemContainerGenerator, item);
-            }
-        }
-    }
+    public List<ExplorerNode> Children { get; } = new();
+    public bool HasChildren => Children.Count > 0;
 }

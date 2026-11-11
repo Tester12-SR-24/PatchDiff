@@ -1,7 +1,0 @@
-<Application x:Class="PatchDiff.App"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             ShutdownMode="OnExplicitShutdown">
-    <!-- Resources (Dark.xaml) are merged in code inside App.OnStartup so that
-         theme-file crashes can be caught by the pre-WPF safety net. -->
-</Application>
