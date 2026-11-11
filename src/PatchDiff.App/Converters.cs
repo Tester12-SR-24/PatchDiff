@@ -39,7 +39,6 @@ public sealed class KindToBrushConverter : IValueConverter
     static readonly Brush Deleted = new SolidColorBrush(Color.FromRgb(0x3A, 0x21, 0x26));
     static readonly Brush Inserted = new SolidColorBrush(Color.FromRgb(0x22, 0x37, 0x1F));
     static readonly Brush Modified = new SolidColorBrush(Color.FromRgb(0x39, 0x30, 0x1A));
-
     static KindToBrushConverter()
     {
         Deleted.Freeze(); Inserted.Freeze(); Modified.Freeze();
@@ -58,6 +57,68 @@ public sealed class KindToBrushConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>Strong 3px left-edge color for the refined side-by-side diff (mock 2).</summary>
+public sealed class KindToEdgeBrushConverter : IValueConverter
+{
+    static readonly Brush Transparent = Brushes.Transparent;
+    static readonly Brush Deleted = new SolidColorBrush(Color.FromRgb(0xFF, 0x8F, 0xA0));
+    static readonly Brush Inserted = new SolidColorBrush(Color.FromRgb(0x7B, 0xE4, 0x95));
+    static readonly Brush Modified = new SolidColorBrush(Color.FromRgb(0xFF, 0xD1, 0x66));
+
+    static KindToEdgeBrushConverter()
+    {
+        Deleted.Freeze(); Inserted.Freeze(); Modified.Freeze();
+    }
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value switch
+        {
+            "Deleted" or "Removed" => Deleted,
+            "Inserted" or "Added" => Inserted,
+            "Modified" => Modified,
+            _ => Transparent,
+        };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Tinted text color for changed lines in the refined side-by-side diff (mock 2).</summary>
+public sealed class KindToTextBrushConverter : IValueConverter
+{
+    static readonly Brush Normal = new SolidColorBrush(Color.FromRgb(0xCF, 0xD3, 0xDC));
+    static readonly Brush Deleted = new SolidColorBrush(Color.FromRgb(0xF3, 0xC1, 0xCA));
+    static readonly Brush Inserted = new SolidColorBrush(Color.FromRgb(0xB8, 0xEC, 0xC4));
+    static readonly Brush Modified = new SolidColorBrush(Color.FromRgb(0xFF, 0xE2, 0x9E));
+
+    static KindToTextBrushConverter()
+    {
+        Normal.Freeze(); Deleted.Freeze(); Inserted.Freeze(); Modified.Freeze();
+    }
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value switch
+        {
+            "Deleted" or "Removed" => Deleted,
+            "Inserted" or "Added" => Inserted,
+            "Modified" => Modified,
+            _ => Normal,
+        };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+
+/// <summary>Empty string = Collapsed, otherwise Visible (diff badge pills).</summary>
+public sealed class CollapsedWhenEmptyConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        string.IsNullOrEmpty(value as string) ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
 
 /// <summary>true = Visible, false = Collapsed.</summary>
 public sealed class BoolToVisibilityConverter : IValueConverter
