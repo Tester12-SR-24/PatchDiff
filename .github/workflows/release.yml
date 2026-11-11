@@ -61,9 +61,24 @@ jobs:
             dist/PatchDiff-setup-*.exe
 
   linux:
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+        include:
+          - arch: x64
+            rid: linux-x64
+            deploy: linuxdeploy-x86_64.AppImage
+            tar: patchdiff-linux-x64.tar.gz
+            appimage: patchdiff-linux-x64.AppImage
+          - arch: arm64
+            rid: linux-arm64
+            deploy: linuxdeploy-aarch64.AppImage
+            tar: patchdiff-linux-arm64.tar.gz
+            appimage: patchdiff-linux-arm64.AppImage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
@@ -71,31 +86,16 @@ jobs:
       - name: Publish App (Avalonia, self-contained single file)
         run: |
           VER=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-          dotnet publish src/PatchDiff.AppA -c Release -r linux-x64 \
-            --self-contained true \
-            -p:PublishSingleFile=true -p:PublishTrimmed=false \
-            -p:InformationalVersion=$VER -p:IncludeSourceRevisionInInformationalVersion=false \
-            -o dist/app-linux
-
-      - name: Publish CLI (self-contained single file)
-        run: |
-          VER=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-          dotnet publish src/PatchDiff.Cli -c Release -r linux-x64 \
-            --self-contained true \
-            -p:PublishSingleFile=true -p:PublishTrimmed=false \
-            -p:InformationalVersion=$VER -p:IncludeSourceRevisionInInformationalVersion=false \
-            -o dist/cli-linux
+          dotnet publish src/PatchDiff.AppA -c Release -r ${{ matrix.rid }}             --self-contained true             -p:PublishSingleFile=true -p:PublishTrimmed=false             -p:InformationalVersion=$VER -p:IncludeSourceRevisionInInformationalVersion=false             -o dist/app-linux
 
       - name: Package .tar.gz
         run: |
-          mkdir -p release/patchdiff-${{ github.ref_name }}
-          cp -a dist/app-linux/* release/patchdiff-${{ github.ref_name }}/
-          cp -a dist/cli-linux/patchdiff release/patchdiff-${{ github.ref_name }}/patchdiff-cli
-          tar -czf patchdiff-linux-x64.tar.gz -C release patchdiff-${{ github.ref_name }}
+          mkdir -p release/patchdiff-${{ github.ref_name }}-${{ matrix.arch }}
+          cp -a dist/app-linux/* release/patchdiff-${{ github.ref_name }}-${{ matrix.arch }}/
+          tar -czf ${{ matrix.tar }} -C release patchdiff-${{ github.ref_name }}-${{ matrix.arch }}
 
       - name: Package .AppImage
         run: |
-          VER=$(echo "${{ github.ref_name }}" | sed 's/^v//')
           mkdir -p AppDir/usr/bin AppDir/usr/share/applications
           cp -a dist/app-linux/* AppDir/usr/bin/
           chmod +x AppDir/usr/bin/PatchDiff
@@ -105,22 +105,22 @@ jobs:
           Exec=PatchDiff
           Type=Application
           Categories=Development;
-          Comment=Watch game DLLs and see what each patch changed
+          Comment=Watch game DLLs and see what a patch changed
           DESKTOP
           # icon: AppImage wants usr/share/icons/hicolor/<size>/apps/<name>.png
           mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
-          cp dist/app-linux/icon-512.png AppDir/usr/share/icons/hicolor/512x512/apps/patchdiff.png 2>/dev/null ||             cp src/PatchDiff.AppA/Assets/icon-512.png AppDir/usr/share/icons/hicolor/512x512/apps/patchdiff.png
+          cp src/PatchDiff.AppA/Assets/icon-512.png AppDir/usr/share/icons/hicolor/512x512/apps/patchdiff.png
           ln -sf usr/share/icons/hicolor/512x512/apps/patchdiff.png AppDir/.DirIcon
           ln -sf usr/bin/PatchDiff AppDir/AppRun
-          wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
-          chmod +x linuxdeploy-x86_64.AppImage
-          OUTPUT=patchdiff-linux-x64.AppImage ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
-          chmod +x patchdiff-linux-x64.AppImage
+          wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/${{ matrix.deploy }}"
+          chmod +x ${{ matrix.deploy }}
+          OUTPUT=${{ matrix.appimage }} ./${{ matrix.deploy }} --appdir AppDir --output appimage
+          chmod +x ${{ matrix.appimage }}
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            patchdiff-linux-x64.tar.gz
-            patchdiff-linux-x64.AppImage
+            ${{ matrix.tar }}
+            ${{ matrix.appimage }}
