@@ -11,6 +11,7 @@ on:
         type: string
 
 permissions:
+  actions: read
   contents: write
 
 env:
@@ -136,10 +137,9 @@ jobs:
           ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
       - name: Download compiled build
-        uses: actions/download-artifact@v4
-        with:
-          name: build-${{ matrix.rid }}
-          path: publish/${{ matrix.rid }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --name "build-${{ matrix.rid }}" --dir "publish/${{ matrix.rid }}"
 
       - name: Install AppImage tools
         run: |
@@ -192,18 +192,14 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Download Linux builds
-        uses: actions/download-artifact@v4
-        with:
-          pattern: build-linux-*
-          path: builds
-          merge-multiple: false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --pattern 'build-linux-*' --dir builds
 
       - name: Download AppImages
-        uses: actions/download-artifact@v4
-        with:
-          pattern: appimage-linux-*
-          path: appimages
-          merge-multiple: false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --pattern 'appimage-linux-*' --dir appimages
 
       - name: Create archives
         shell: bash
@@ -234,25 +230,24 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Download release archives
-        uses: actions/download-artifact@v4
-        with:
-          name: release-archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --name release-archives --dir .
 
       - name: Download x64 AppImage
-        uses: actions/download-artifact@v4
-        with:
-          name: appimage-linux-x64
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --name appimage-linux-x64 --dir .
 
       - name: Download ARM64 AppImage
-        uses: actions/download-artifact@v4
-        with:
-          name: appimage-linux-arm64
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --name appimage-linux-arm64 --dir .
 
       - name: Download Windows release files
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-release
-          path: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --name windows-release --dir dist
 
       - name: Publish release
         uses: ncipollo/release-action@v1
