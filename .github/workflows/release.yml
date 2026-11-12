@@ -256,7 +256,7 @@ jobs:
       - name: Install AppImage tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq squashfs-tools appstream
+          sudo apt-get install -y -qq squashfs-tools
           # appimagetool runs on the x86-64 CI host; ARCH selects the target runtime.
           curl --fail --location --output appimagetool.AppImage \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
@@ -266,9 +266,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p AppDir/usr/lib/patchdiff AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/metainfo
+          mkdir -p AppDir/usr/lib/patchdiff AppDir/usr/bin AppDir/usr/share/applications
           cp -a "publish/${{ matrix.rid }}/app/." AppDir/usr/lib/patchdiff/
-          cp assets/patchdiff.appdata.xml AppDir/usr/share/metainfo/patchdiff.appdata.xml
           cat > AppDir/usr/bin/patchdiff <<'EOF'
           #!/bin/sh
           HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)

@@ -348,8 +348,12 @@ public sealed class UpdaterService
             sb.AppendLine($"nohup '{appExe}' >/dev/null 2>&1 &");
             sb.AppendLine("rm -f \"$0\"");
             File.WriteAllText(script, sb.ToString());
-            File.SetUnixFileMode(script,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            // Unix-only API: guard so the Windows build stays warning-free.
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(script,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
 
             Process.Start(new ProcessStartInfo("/bin/sh", $"'{script}'")
             {
