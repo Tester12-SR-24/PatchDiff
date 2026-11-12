@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text.Json;
 
 namespace PatchDiff.Services;
@@ -102,7 +103,15 @@ public sealed class UpdaterService
     {
         try
         {
-            var fv = FileVersionInfo.GetVersionInfo(Environment.ProcessPath ?? typeof(UpdaterService).Assembly.Location);
+            // Single-file publishes report an empty Assembly.Location, so resolve the
+            // real process path first and fall back to the app base directory.
+            var path = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(path))
+            {
+                var name = Assembly.GetEntryAssembly()?.GetName().Name ?? "PatchDiff";
+                path = Path.Combine(AppContext.BaseDirectory, name + ".dll");
+            }
+            var fv = FileVersionInfo.GetVersionInfo(path);
             return fv.ProductVersion is { Length: > 0 } pv ? pv : fv.FileVersion ?? "?";
         }
         catch { return "?"; }

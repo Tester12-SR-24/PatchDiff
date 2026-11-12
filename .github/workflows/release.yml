@@ -38,12 +38,12 @@ jobs:
             arch: arm64
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -134,14 +134,30 @@ jobs:
           $process = Start-Process -FilePath (Resolve-Path "publish/win-x64/app/PatchDiff.exe") -PassThru `
             -RedirectStandardOutput $stdout -RedirectStandardError $stderr
           try {
-            if ($process.WaitForExit(10000)) {
+            # A cold single-file launch extracts native libraries on first run, so the
+            # window can take well over 10s to appear. Poll instead of checking once.
+            $deadline = (Get-Date).AddSeconds(90)
+            $handle = 0
+            while ((Get-Date) -lt $deadline) {
+              if ($process.HasExited) { break }
+              $process.Refresh()
+              $handle = $process.MainWindowHandle
+              if ($handle -ne 0) { break }
+              Start-Sleep -Milliseconds 500
+            }
+            if ($process.HasExited) {
               if (Test-Path $stderr) { Get-Content $stderr }
               if (Test-Path $stdout) { Get-Content $stdout }
+              $crashDir = Join-Path $env:PATCHDIFF_DATA_DIR "logs"
+              if (Test-Path $crashDir) { Get-ChildItem $crashDir | ForEach-Object { Get-Content $_.FullName } }
               throw "PatchDiff exited during Windows startup with code $($process.ExitCode)"
             }
-            $process.Refresh()
-            if ($process.MainWindowHandle -eq 0) {
-              throw "PatchDiff remained alive but did not create a main window."
+            if ($handle -eq 0) {
+              if (Test-Path $stderr) { Get-Content $stderr }
+              if (Test-Path $stdout) { Get-Content $stdout }
+              $crashDir = Join-Path $env:PATCHDIFF_DATA_DIR "logs"
+              if (Test-Path $crashDir) { Get-ChildItem $crashDir | ForEach-Object { Get-Content $_.FullName } }
+              throw "PatchDiff remained alive for 90s but never created a main window."
             }
             Write-Host "PatchDiff created main window '$($process.MainWindowTitle)' and remained alive (PID $($process.Id))."
           }
@@ -178,7 +194,7 @@ jobs:
 
       - name: Upload Windows release files
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: windows-release
           path: dist/*
@@ -194,7 +210,7 @@ jobs:
 
       - name: Upload Linux build archive
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-${{ matrix.rid }}
           path: build-${{ matrix.arch }}.tar.gz
@@ -216,12 +232,12 @@ jobs:
             appimage_arch: aarch64
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
       - name: Download build archive
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: build-${{ matrix.rid }}
           path: build-archive
@@ -279,7 +295,7 @@ jobs:
           chmod +x "PatchDiff-${{ matrix.rid }}.AppImage"
 
       - name: Upload AppImage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: appimage-${{ matrix.rid }}
           path: "PatchDiff-${{ matrix.rid }}.AppImage"
@@ -291,25 +307,25 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Download x64 build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: build-linux-x64
           path: input/build-linux-x64
 
       - name: Download ARM64 build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: build-linux-arm64
           path: input/build-linux-arm64
 
       - name: Download x64 AppImage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: appimage-linux-x64
           path: input/appimage-linux-x64
 
       - name: Download ARM64 AppImage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: appimage-linux-arm64
           path: input/appimage-linux-arm64
@@ -341,7 +357,7 @@ jobs:
           tar -tvzf PatchDiff-linux-arm64.tar.gz | grep 'patchdiff-cli$'
 
       - name: Upload release archives
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: release-archives
           path: |
@@ -355,30 +371,30 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
       - name: Download release archives
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: release-archives
           path: release-assets
 
       - name: Download x64 AppImage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: appimage-linux-x64
           path: release-assets
 
       - name: Download ARM64 AppImage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: appimage-linux-arm64
           path: release-assets
 
       - name: Download Windows release files
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: windows-release
           path: release-assets

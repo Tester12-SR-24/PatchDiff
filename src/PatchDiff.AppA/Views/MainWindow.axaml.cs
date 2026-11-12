@@ -72,6 +72,10 @@ public partial class MainWindow : Window
         AutoStartItem.IsChecked = AutoStart.IsEnabled();
         AutoStartItem.IsVisible = AutoStart.IsSupported;
         CreateTrayIcon();
+        // A hidden start is only safe when the tray icon actually exists — otherwise the
+        // app would run with no window and no way to reach it.
+        if (StartHiddenToTray && _tray is null)
+            StartHiddenToTray = false;
         // A tray icon is only needed when the window can be hidden (close-to-tray or
         // tray start). When this window is shown normally, OnOpened drops the icon.
         if (!StartHiddenToTray && !_settings.CloseToTray)

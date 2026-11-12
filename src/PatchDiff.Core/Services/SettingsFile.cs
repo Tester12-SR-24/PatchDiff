@@ -9,8 +9,10 @@ public sealed class StoredSettings
     public int PollSeconds { get; set; } = 10;
     public bool BalloonOnPatch { get; set; } = true;
 
-    /// <summary>When set, the app starts hidden in the system tray (tray icon opens it). Default ON per user request.</summary>
-    public bool StartMinimized { get; set; } = true;
+    /// <summary>When set, the app starts hidden in the system tray (tray icon opens it).
+    /// Default OFF: a first launch must show the window, otherwise the app looks like
+    /// it never started.</summary>
+    public bool StartMinimized { get; set; }
 
     /// <summary>Closing the main window hides it to the tray instead of exiting.</summary>
     public bool CloseToTray { get; set; }
