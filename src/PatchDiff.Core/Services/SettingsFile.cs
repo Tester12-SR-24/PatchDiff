@@ -8,13 +8,30 @@ public sealed class StoredSettings
     public List<string> Watched { get; set; } = new();
     public int PollSeconds { get; set; } = 10;
     public bool BalloonOnPatch { get; set; } = true;
-    public bool StartMinimized { get; set; }
-    public int ArchiveKeep { get; set; } // 0 = keep all
+
+    /// <summary>When set, the app starts hidden in the system tray (tray icon opens it). Default ON per user request.</summary>
+    public bool StartMinimized { get; set; } = true;
+
+    /// <summary>Closing the main window hides it to the tray instead of exiting.</summary>
+    public bool CloseToTray { get; set; }
+
+    /// <summary>When true (default), every analyzed version of a watched assembly is archived
+    /// to revision history automatically. When false, only the baseline is kept current and
+    /// versions must be saved explicitly (Save to History).</summary>
+    public bool AutoSaveHistory { get; set; } = true;
+
+    /// <summary>Optional redirect for snapshots/revisions/reports. Settings themselves stay
+    /// in the default data root so the override can be changed back.</summary>
+    public string DataFolder { get; set; } = "";
+
+    public int ArchiveKeep { get; set; } = 20; // history kept until deletion: oldest pruned beyond this; 0 = keep all
 }
 
 public static class SettingsFile
 {
-    static string FilePath => System.IO.Path.Combine(SnapshotStore.DataRoot, "settings.json");
+    // Settings always live in the DEFAULT data root — the custom DataFolder override
+    // redirects the stores, not the settings file, so the override stays changeable.
+    static string FilePath => System.IO.Path.Combine(SnapshotStore.DefaultDataRoot, "settings.json");
     static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
     public static StoredSettings Load()

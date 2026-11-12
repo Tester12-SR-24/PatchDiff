@@ -11,11 +11,30 @@ namespace PatchDiff.Views;
 
 public partial class BrowseView : UserControl
 {
-    readonly AssemblySnapshot _snapshot;
-    readonly WatchedDll _watch;
+    /// <summary>The currently selected type node in the tree (with decompiled source), or null.</summary>
+    public ExplorerNode? SelectedNode => TypeTree.SelectedItem as ExplorerNode;
+    // Assigned only when the view is constructed via the parameterized constructor;
+    // the parameterless constructor exists for runtime-XAML support only.
+    readonly AssemblySnapshot _snapshot = null!;
+    readonly WatchedDll _watch = null!;
     ExplorerNode? _root;
 
     public event Action<AssemblyDiffResult>? DiffRequested;
+
+    /// <summary>
+    /// Raised when a type's source is clicked in the tree (true) or the selection is cleared (false).
+    /// Used by the Inspector to enable/disable "Export C# file".
+    /// </summary>
+    public event Action<bool>? TypeSelectionChanged;
+
+    /// <summary>
+    /// For runtime-XAML support only — normal usage goes through the parameterized
+    /// constructor; the browse view is not usable without a snapshot.
+    /// </summary>
+    public BrowseView()
+    {
+        InitializeComponent();
+    }
 
     public BrowseView(AssemblySnapshot snapshot, WatchedDll watch)
     {
@@ -153,7 +172,13 @@ public partial class BrowseView : UserControl
     void OnTreeSelection(object? sender, SelectionChangedEventArgs e)
     {
         if (e.AddedItems.Count == 0 || e.AddedItems[0] is not ExplorerNode node || node.Source is null)
+        {
+            TypeSelectionChanged?.Invoke(false);
             return;
+        }
+
+        ExportTypeBtn.IsEnabled = true;
+        TypeSelectionChanged?.Invoke(true);
 
         SourceText.Text = node.Source;
         if (node.Highlight is { Length: > 0 } member)
@@ -194,7 +219,7 @@ public partial class BrowseView : UserControl
         TypeTree.ItemsSource = new[] { root };
     }
 
-    async void OnDiffCurrent(object? sender, RoutedEventArgs e)
+    void OnDiffCurrent(object? sender, RoutedEventArgs e)
     {
         var w = _watch;
         try
@@ -208,7 +233,12 @@ public partial class BrowseView : UserControl
             }
 
             var newSnap = SnapshotStore.Load(w.Path) ?? _snapshot;
-            var prev = revs.FirstOrDefault(r => r.Sha256 != newSnap.Sha256);
+            // "Diff vs current" must compare against the IMMEDIATELY-PREVIOUS revision,
+            // not the oldest differing one. Newest-first ordering + first differing =
+            // the revision current was derived from.
+            var prev = revs
+                .OrderByDescending(r => r.CapturedUtc)
+                .FirstOrDefault(r => !string.Equals(r.Sha256, newSnap.Sha256, StringComparison.OrdinalIgnoreCase));
             var oldSnap = prev is null ? newSnap : store.LoadRevision(w.Path, prev.Sha256) ?? newSnap;
 
             var diff = new DiffService().Compare(oldSnap, newSnap,
@@ -224,7 +254,7 @@ public partial class BrowseView : UserControl
         }
     }
 
-    async void OnDiffPrev(object? sender, RoutedEventArgs e)
+    void OnDiffPrev(object? sender, RoutedEventArgs e)
     {
         var w = _watch;
         try

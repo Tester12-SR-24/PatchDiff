@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <linearGradient id="tile" x1="12" y1="8" x2="116" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#202b3b"/><stop offset="1" stop-color="#131a27"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="26" y1="0" x2="62" y2="128" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c4b5fd"/><stop offset="1" stop-color="#8b7cf6"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="68" y1="0" x2="106" y2="128" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67e8f9"/><stop offset="1" stop-color="#35bfd5"/>
+    </linearGradient>
+  </defs>
+  <rect x="5" y="5" width="118" height="118" rx="29" fill="url(#tile)" stroke="#354257" stroke-width="2"/>
+  <rect x="20" y="26" width="39" height="76" rx="9" fill="#26243b" stroke="url(#violet)" stroke-width="2.5"/>
+  <rect x="69" y="26" width="39" height="76" rx="9" fill="#1b303b" stroke="url(#cyan)" stroke-width="2.5"/>
+  <g stroke="#a9b6ca" stroke-width="3.5">
+    <path d="M29 43h20M29 58h14M29 82h20"/>
+    <path d="M78 43h20M78 67h14M78 82h20"/>
+  </g>
+  <path d="M29 70h9" stroke="#c4b5fd" stroke-width="3.5"/>
+  <path d="M78 58h11" stroke="#67e8f9" stroke-width="3.5"/>
+  <path d="M59 53h10m-4-4 4 4-4 4" stroke="#67e8f9" stroke-width="2.7"/>
+  <path d="M69 75H59m4-4-4 4 4 4" stroke="#c4b5fd" stroke-width="2.7"/>
+</svg>

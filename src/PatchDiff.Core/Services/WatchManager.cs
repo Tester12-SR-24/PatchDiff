@@ -91,7 +91,13 @@ public sealed class WatchManager : IDisposable
     readonly DiffService _diff = new();
     readonly RevisionStore _revisions = new();
     public int ArchiveKeep { get; set; } // 0 = keep all revisions
+
+    /// <summary>When true (default), every analyzed version is archived to revision history
+    /// automatically. When false, only the baseline snapshot is kept current — versions are
+    /// saved explicitly via SaveToHistory (DiffView's Save to History button).</summary>
+    public bool AutoSaveHistory { get; set; } = true;
     readonly SemaphoreSlim _checkGate = new(1, 1);
+    bool _disposed;
 
     /// <summary>Poll fallback period: FileSystemWatcher can miss events (network drives, fast renames).</summary>
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(10);
@@ -104,13 +110,23 @@ public sealed class WatchManager : IDisposable
 
     public void Add(string dllPath)
     {
-        if (Watched.Any(w => string.Equals(w.Path, dllPath, StringComparison.OrdinalIgnoreCase)))
+        var fullPath = System.IO.Path.GetFullPath(dllPath);
+        if (Watched.Any(w => string.Equals(w.Path, fullPath, StringComparison.OrdinalIgnoreCase)))
             return;
 
-        var w = new WatchedDll { Path = System.IO.Path.GetFullPath(dllPath) };
+        var w = new WatchedDll { Path = fullPath };
         Watched.Add(w);
 
-        StartWatcher(w);
+        try
+        {
+            StartWatcher(w);
+        }
+        catch (Exception ex)
+        {
+            // A stale watch can point into a removed directory. Do not let watcher
+            // creation abort app startup; polling still detects the file if it returns.
+            Log($"File watcher unavailable for {w.Path}; polling fallback remains active: {ex.Message}");
+        }
         _ = Task.Run(() => CheckAsync(w));
 
         StartPollingIfNeeded();
@@ -140,6 +156,31 @@ public sealed class WatchManager : IDisposable
 
     /// <summary>Manual re-check (ignores debounce).</summary>
     public void RequestCheck(WatchedDll w) => _ = Task.Run(() => CheckAsync(w));
+
+    /// <summary>Archives the current file as a revision in its history — used by the GUI's
+    /// "Save to History" button for manual compares, or when auto-save history is off.</summary>
+    public void SaveToHistory(string dllPath)
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (!File.Exists(dllPath))
+                {
+                    Log($"Could not save to history — file not found: {dllPath}");
+                    return;
+                }
+                var snap = _decompiler.Build(dllPath);
+                var bytes = File.ReadAllBytes(dllPath);
+                _revisions.Append(snap, bytes, ArchiveKeep);
+                Log($"{Path.GetFileName(dllPath)} saved to revision history ({snap.Sha256[..8]}, v{snap.AssemblyVersion}, {snap.Types.Count} types).");
+            }
+            catch (Exception ex)
+            {
+                Log($"Could not save to history: {ex.Message}");
+            }
+        });
+    }
 
     /// <summary>Compares two arbitrary DLL files without touching the watch list or snapshots.</summary>
     public async Task<AssemblyDiffResult?> CompareTwoAsync(string oldPath, string newPath)
@@ -179,17 +220,27 @@ public sealed class WatchManager : IDisposable
         var fsw = new FileSystemWatcher(dir, file)
         {
             NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime | NotifyFilters.FileName,
-            EnableRaisingEvents = true,
         };
+        var debounce = new System.Timers.Timer(900) { AutoReset = false };
         fsw.Changed += (_, _) => QueueCheck(w);
         fsw.Created += (_, _) => QueueCheck(w);
         fsw.Renamed += (_, _) => QueueCheck(w);
         fsw.Deleted += (_, _) => QueueCheck(w);
         fsw.Error += (_, _) => { /* poll fallback covers buffer overflows */ };
-        w.Watcher = fsw;
+        debounce.Elapsed += (_, _) => _ = Task.Run(() => CheckAsync(w));
 
-        w.Debounce = new System.Timers.Timer(900) { AutoReset = false };
-        w.Debounce.Elapsed += (_, _) => _ = Task.Run(() => CheckAsync(w));
+        try
+        {
+            fsw.EnableRaisingEvents = true;
+            w.Watcher = fsw;
+            w.Debounce = debounce;
+        }
+        catch
+        {
+            fsw.Dispose();
+            debounce.Dispose();
+            throw;
+        }
     }
 
     void QueueCheck(WatchedDll w)
@@ -197,8 +248,16 @@ public sealed class WatchManager : IDisposable
         var t = w.Debounce;
         if (t is null)
             return;
-        t.Stop();
-        t.Start();
+        try
+        {
+            t.Stop();
+            t.Start();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Remove()/Dispose() raced an in-flight watcher event; the watch is gone,
+            // so there is nothing left to debounce.
+        }
     }
 
     System.Timers.Timer? _pollTimer;
@@ -216,7 +275,9 @@ public sealed class WatchManager : IDisposable
         _pollTimer = new System.Timers.Timer(PollInterval.TotalMilliseconds) { AutoReset = true };
         _pollTimer.Elapsed += (_, _) =>
         {
-            foreach (var w in Watched)
+            // Snapshot: this runs on a timer thread while the UI thread can Add/Remove,
+            // and ObservableCollection does not tolerate concurrent mutation.
+            foreach (var w in Watched.ToArray())
                 _ = Task.Run(() => CheckAsync(w, quietWhenUnchanged: true));
         };
         _pollTimer.Start();
@@ -224,7 +285,16 @@ public sealed class WatchManager : IDisposable
 
     void CheckAsync(WatchedDll w, bool quietWhenUnchanged = false)
     {
-        _checkGate.Wait();
+        if (_disposed)
+            return; // manager disposed while this check sat queued
+        try
+        {
+            _checkGate.Wait();
+        }
+        catch (ObjectDisposedException)
+        {
+            return; // Dispose() ran between the flag check and the wait
+        }
         try
         {
             if (!Watched.Contains(w))
@@ -292,7 +362,8 @@ public sealed class WatchManager : IDisposable
             // (e.g. no member signatures) — silently upgrade the baseline.
             if (oldSnap is not null && oldSnap.Sha256 == newSnap.Sha256)
             {
-                _revisions.Append(newSnap, newBytes, ArchiveKeep);
+                if (AutoSaveHistory)
+                    _revisions.Append(newSnap, newBytes, ArchiveKeep);
                 SnapshotStore.Save(newSnap);
                 w.Status = "Baseline upgraded";
                 w.PillKind = "ok";
@@ -303,7 +374,8 @@ public sealed class WatchManager : IDisposable
 
             if (oldSnap is null)
             {
-                _revisions.Append(newSnap, newBytes, ArchiveKeep);
+                if (AutoSaveHistory)
+                    _revisions.Append(newSnap, newBytes, ArchiveKeep);
                 SnapshotStore.Save(newSnap);
                 w.Status = $"Baseline saved (v{newSnap.AssemblyVersion})";
                 w.PillKind = "baseline";
@@ -315,7 +387,8 @@ public sealed class WatchManager : IDisposable
             }
 
             var diff = _diff.Compare(oldSnap, newSnap);
-            _revisions.Append(newSnap, newBytes, ArchiveKeep);
+            if (AutoSaveHistory)
+                _revisions.Append(newSnap, newBytes, ArchiveKeep);
             SnapshotStore.Save(newSnap);
 
             if (diff.HasChanges)
@@ -350,7 +423,14 @@ public sealed class WatchManager : IDisposable
         }
         finally
         {
-            _checkGate.Release();
+            try
+            {
+                _checkGate.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Dispose() ran while this check was still executing.
+            }
         }
     }
 
@@ -382,6 +462,7 @@ public sealed class WatchManager : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         foreach (var w in Watched)
         {
             w.Watcher?.Dispose();

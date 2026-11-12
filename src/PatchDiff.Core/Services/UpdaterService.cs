@@ -26,6 +26,10 @@ public sealed record ReleaseInfo(string Tag, string Name, string PageUrl, string
 public sealed class UpdaterService
 {
     const string Repo = "Tester12-SR-24/PatchDiff";
+    // Must match the app zip published by .github/workflows/release.yml
+    // (dist/PatchDiff-app-win-x64.zip) and the README's artifact table. The
+    // compare below is case-insensitive, so only the spelling has to line up
+    // with the asset name on the release.
     const string AppAssetName = "PatchDiff-app-win-x64.zip";
 
     readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing version tag to publish, for example v1.2.4'
+        description: Existing SemVer tag to publish, for example v2.0.0
         required: true
         type: string
 
@@ -31,26 +31,31 @@ jobs:
           - name: Linux x64
             os: ubuntu-22.04
             rid: linux-x64
+            arch: x64
           - name: Linux ARM64
             os: ubuntu-22.04
             rid: linux-arm64
+            arch: arm64
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
-      - uses: actions/setup-dotnet@v4
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Resolve version
+        id: version
         shell: bash
         env:
           RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]
-          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Install Windows installer compiler
         if: runner.os == 'Windows'
@@ -59,48 +64,116 @@ jobs:
 
       - name: Install Linux desktop build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libx11-6 libice6 libsm6 libfontconfig1
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libx11-6 libice6 libsm6 libfontconfig1 xvfb
 
-      - name: Publish CLI
+      # PatchDiff ships two executables per platform: the Avalonia GUI (PatchDiff)
+      # and the headless CLI (patchdiff). Both are stamped from the release tag so
+      # `--version` output always matches the published release.
+      - name: Publish CLI (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: dotnet publish src/PatchDiff.Cli -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:InformationalVersion=$env:version -p:IncludeSourceRevisionInInformationalVersion=false -o "publish\win-x64\cli"
+        run: >
+          dotnet publish src/PatchDiff.Cli -c Release -r ${{ matrix.rid }}
+          --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.version }}.0
+          -p:FileVersion=${{ steps.version.outputs.version }}.0
+          -p:InformationalVersion=${{ steps.version.outputs.version }}
+          -p:IncludeSourceRevisionInInformationalVersion=false
+          -o "publish\win-x64\cli"
 
       - name: Publish CLI (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: >
-          dotnet publish src/PatchDiff.Cli -c Release -r ${{ matrix.rid }}
-          --self-contained true
-          -p:PublishSingleFile=true -p:PublishTrimmed=false
-          -p:InformationalVersion=${{ env.version }}
-          -p:IncludeSourceRevisionInInformationalVersion=false
-          -o "publish/${{ matrix.rid }}/cli"
+        run: |
+          dotnet publish src/PatchDiff.Cli -c Release -r ${{ matrix.rid }} \
+            --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false \
+            -p:Version=${{ steps.version.outputs.version }} \
+            -p:AssemblyVersion=${{ steps.version.outputs.version }}.0 \
+            -p:FileVersion=${{ steps.version.outputs.version }}.0 \
+            -p:InformationalVersion=${{ steps.version.outputs.version }} \
+            -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o "publish/${{ matrix.rid }}/cli"
 
-      - name: Publish App (Avalonia, Windows)
+      - name: Publish Avalonia app (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: dotnet publish src/PatchDiff.AppA -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:InformationalVersion=$env:version -p:IncludeSourceRevisionInInformationalVersion=false -o "publish\win-x64\app"
-
-      - name: Publish App (Avalonia, Linux)
-        if: runner.os == 'Linux'
-        shell: bash
         run: >
           dotnet publish src/PatchDiff.AppA -c Release -r ${{ matrix.rid }}
-          --self-contained true
-          -p:PublishSingleFile=true -p:PublishTrimmed=false
-          -p:InformationalVersion=${{ env.version }}
+          --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.version }}.0
+          -p:FileVersion=${{ steps.version.outputs.version }}.0
+          -p:InformationalVersion=${{ steps.version.outputs.version }}
           -p:IncludeSourceRevisionInInformationalVersion=false
-          -o "publish/${{ matrix.rid }}/app"
+          -o "publish\win-x64\app"
 
-      - name: Package (Windows)
+      - name: Publish Avalonia app (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          dotnet publish src/PatchDiff.AppA -c Release -r ${{ matrix.rid }} \
+            --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false \
+            -p:Version=${{ steps.version.outputs.version }} \
+            -p:AssemblyVersion=${{ steps.version.outputs.version }}.0 \
+            -p:FileVersion=${{ steps.version.outputs.version }}.0 \
+            -p:InformationalVersion=${{ steps.version.outputs.version }} \
+            -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o "publish/${{ matrix.rid }}/app"
+          chmod +x "publish/${{ matrix.rid }}/app/PatchDiff" "publish/${{ matrix.rid }}/cli/patchdiff"
+
+      - name: Windows launch smoke test
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          $smokeDir = Join-Path $env:RUNNER_TEMP "patchdiff-smoke-$PID"
+          New-Item -ItemType Directory -Path $smokeDir -Force | Out-Null
+          $env:PATCHDIFF_DATA_DIR = Join-Path $smokeDir "data"
+          $stdout = Join-Path $smokeDir "stdout.log"
+          $stderr = Join-Path $smokeDir "stderr.log"
+          $process = Start-Process -FilePath (Resolve-Path "publish/win-x64/app/PatchDiff.exe") -PassThru `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            if ($process.WaitForExit(10000)) {
+              if (Test-Path $stderr) { Get-Content $stderr }
+              if (Test-Path $stdout) { Get-Content $stdout }
+              throw "PatchDiff exited during Windows startup with code $($process.ExitCode)"
+            }
+            $process.Refresh()
+            if ($process.MainWindowHandle -eq 0) {
+              throw "PatchDiff remained alive but did not create a main window."
+            }
+            Write-Host "PatchDiff created main window '$($process.MainWindowTitle)' and remained alive (PID $($process.Id))."
+          }
+          finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force
+              $process.WaitForExit()
+            }
+          }
+
+      - name: Linux x64 launch smoke test
+        if: matrix.rid == 'linux-x64'
+        shell: bash
+        run: |
+          set +e
+          timeout 12s xvfb-run -a "$(pwd)/publish/linux-x64/app/PatchDiff" > /tmp/patchdiff-smoke.log 2>&1
+          code=$?
+          cat /tmp/patchdiff-smoke.log
+          if [ "$code" -ne 124 ]; then
+            echo "Avalonia app did not remain running through the smoke-test timeout (exit code $code)" >&2
+            exit 1
+          fi
+
+      - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path "dist" -Force | Out-Null
+          Get-ChildItem -Path "publish/win-x64/cli", "publish/win-x64/app" -Filter "*.pdb" -File -Recurse | Remove-Item -Force
           Compress-Archive -Path "publish/win-x64/cli/*" -DestinationPath "dist/patchdiff-win-x64.zip" -Force
-          Compress-Archive -Path "publish/win-x64/app/*" -DestinationPath "dist/PatchDiff-win-x64.zip" -Force
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss /DAppVersion=$env:version
+          Compress-Archive -Path "publish/win-x64/app/*" -DestinationPath "dist/PatchDiff-app-win-x64.zip" -Force
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss /DAppVersion=${{ steps.version.outputs.version }}
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Upload Windows release files
@@ -111,12 +184,20 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-      - name: Upload compiled Linux build
+      - name: Package Linux build with executable modes preserved
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf "build-${{ matrix.arch }}.tar.gz" -C "publish/${{ matrix.rid }}" .
+          tar -tvzf "build-${{ matrix.arch }}.tar.gz" | grep -E 'PatchDiff$|patchdiff$'
+
+      - name: Upload Linux build archive
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.rid }}
-          path: publish/${{ matrix.rid }}
+          path: build-${{ matrix.arch }}.tar.gz
           if-no-files-found: error
 
   appimage:
@@ -128,23 +209,35 @@ jobs:
       matrix:
         include:
           - rid: linux-x64
+            arch: x64
             appimage_arch: x86_64
           - rid: linux-arm64
+            arch: arm64
             appimage_arch: aarch64
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
-      - name: Download compiled build
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --name "build-${{ matrix.rid }}" --dir "publish/${{ matrix.rid }}"
+      - name: Download build archive
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ matrix.rid }}
+          path: build-archive
+
+      - name: Extract build archive
+        shell: bash
+        run: |
+          mkdir -p "publish/${{ matrix.rid }}"
+          tar -xzf build-archive/build-${{ matrix.arch }}.tar.gz -C "publish/${{ matrix.rid }}"
+          chmod +x "publish/${{ matrix.rid }}/app/PatchDiff" "publish/${{ matrix.rid }}/cli/patchdiff"
 
       - name: Install AppImage tools
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq squashfs-tools
+          # appimagetool runs on the x86-64 CI host; ARCH selects the target runtime.
           curl --fail --location --output appimagetool.AppImage \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool.AppImage
@@ -153,8 +246,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p AppDir/usr/lib/patchdiff AppDir/usr/share/applications
+          mkdir -p AppDir/usr/lib/patchdiff AppDir/usr/bin AppDir/usr/share/applications
           cp -a "publish/${{ matrix.rid }}/app/." AppDir/usr/lib/patchdiff/
+          cat > AppDir/usr/bin/patchdiff <<'EOF'
+          #!/bin/sh
+          HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+          exec "$HERE/../lib/patchdiff/PatchDiff" "$@"
+          EOF
           cp src/PatchDiff.AppA/Assets/icon-512.png AppDir/patchdiff.png
           cat > AppDir/patchdiff.desktop <<'EOF'
           [Desktop Entry]
@@ -174,10 +272,11 @@ jobs:
           HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
           exec "$HERE/usr/lib/patchdiff/PatchDiff" "$@"
           EOF
-          chmod +x AppDir/AppRun AppDir/usr/lib/patchdiff/PatchDiff
+          chmod +x AppDir/AppRun AppDir/usr/bin/patchdiff AppDir/usr/lib/patchdiff/PatchDiff
           export ARCH=${{ matrix.appimage_arch }}
           ./appimagetool.AppImage --appimage-extract-and-run \
             AppDir "PatchDiff-${{ matrix.rid }}.AppImage"
+          chmod +x "PatchDiff-${{ matrix.rid }}.AppImage"
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
@@ -191,30 +290,55 @@ jobs:
     needs: [build, appimage]
     runs-on: ubuntu-22.04
     steps:
-      - name: Download Linux builds
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --pattern 'build-linux-*' --dir builds
+      - name: Download x64 build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-linux-x64
+          path: input/build-linux-x64
 
-      - name: Download AppImages
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --pattern 'appimage-linux-*' --dir appimages
+      - name: Download ARM64 build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-linux-arm64
+          path: input/build-linux-arm64
 
+      - name: Download x64 AppImage
+        uses: actions/download-artifact@v4
+        with:
+          name: appimage-linux-x64
+          path: input/appimage-linux-x64
+
+      - name: Download ARM64 AppImage
+        uses: actions/download-artifact@v4
+        with:
+          name: appimage-linux-arm64
+          path: input/appimage-linux-arm64
+
+      # Archives follow the README layout: PatchDiff + patchdiff-cli + the AppImage
+      # at the archive root, so "extract and run" works without nesting.
       - name: Create archives
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p PatchDiff/linux-x64 PatchDiff/linux-arm64
-          cp -a builds/build-linux-x64/app/. PatchDiff/linux-x64/
-          cp builds/build-linux-x64/cli/patchdiff PatchDiff/linux-x64/patchdiff-cli
-          cp -a builds/build-linux-arm64/app/. PatchDiff/linux-arm64/
-          cp builds/build-linux-arm64/cli/patchdiff PatchDiff/linux-arm64/patchdiff-cli
-          cp appimages/appimage-linux-x64/PatchDiff-linux-x64.AppImage PatchDiff/linux-x64/
-          cp appimages/appimage-linux-arm64/PatchDiff-linux-arm64.AppImage PatchDiff/linux-arm64/
-          chmod +x PatchDiff/linux-x64/* PatchDiff/linux-arm64/* 2>/dev/null || true
+          mkdir -p input/extracted-x64 input/extracted-arm64 PatchDiff/linux-x64 PatchDiff/linux-arm64
+          tar -xzf input/build-linux-x64/build-x64.tar.gz -C input/extracted-x64
+          tar -xzf input/build-linux-arm64/build-arm64.tar.gz -C input/extracted-arm64
+          cp -a input/extracted-x64/app/. PatchDiff/linux-x64/
+          cp input/extracted-x64/cli/patchdiff PatchDiff/linux-x64/patchdiff-cli
+          cp -a input/extracted-arm64/app/. PatchDiff/linux-arm64/
+          cp input/extracted-arm64/cli/patchdiff PatchDiff/linux-arm64/patchdiff-cli
+          cp input/appimage-linux-x64/PatchDiff-linux-x64.AppImage PatchDiff/linux-x64/
+          cp input/appimage-linux-arm64/PatchDiff-linux-arm64.AppImage PatchDiff/linux-arm64/
+          chmod +x PatchDiff/linux-x64/PatchDiff PatchDiff/linux-x64/patchdiff-cli \
+                   PatchDiff/linux-x64/PatchDiff-linux-x64.AppImage \
+                   PatchDiff/linux-arm64/PatchDiff PatchDiff/linux-arm64/patchdiff-cli \
+                   PatchDiff/linux-arm64/PatchDiff-linux-arm64.AppImage
           (cd PatchDiff/linux-x64 && tar -czf ../../PatchDiff-linux-x64.tar.gz .)
           (cd PatchDiff/linux-arm64 && tar -czf ../../PatchDiff-linux-arm64.tar.gz .)
+          tar -tvzf PatchDiff-linux-x64.tar.gz | grep 'PatchDiff$'
+          tar -tvzf PatchDiff-linux-x64.tar.gz | grep 'patchdiff-cli$'
+          tar -tvzf PatchDiff-linux-arm64.tar.gz | grep 'PatchDiff$'
+          tar -tvzf PatchDiff-linux-arm64.tar.gz | grep 'patchdiff-cli$'
 
       - name: Upload release archives
         uses: actions/upload-artifact@v4
@@ -223,48 +347,80 @@ jobs:
           path: |
             PatchDiff-linux-x64.tar.gz
             PatchDiff-linux-arm64.tar.gz
+          if-no-files-found: error
 
   release:
     name: Publish GitHub release
     needs: [build, appimage, package]
     runs-on: ubuntu-22.04
     steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+
       - name: Download release archives
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --name release-archives --dir .
+        uses: actions/download-artifact@v4
+        with:
+          name: release-archives
+          path: release-assets
 
       - name: Download x64 AppImage
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --name appimage-linux-x64 --dir .
+        uses: actions/download-artifact@v4
+        with:
+          name: appimage-linux-x64
+          path: release-assets
 
       - name: Download ARM64 AppImage
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --name appimage-linux-arm64 --dir .
+        uses: actions/download-artifact@v4
+        with:
+          name: appimage-linux-arm64
+          path: release-assets
 
       - name: Download Windows release files
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "$GITHUB_RUN_ID" --name windows-release --dir dist
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: release-assets
 
+      # Draft-first: the release exists as a draft until every asset is verified
+      # and uploaded, so a mid-run failure never leaves a published-but-empty
+      # release. The tag is force-updated by ncipollo when re-published.
       - name: Publish release
         uses: ncipollo/release-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          artifacts: |
-            PatchDiff-linux-x64.tar.gz
-            PatchDiff-linux-arm64.tar.gz
-            PatchDiff-linux-x64.AppImage
-            PatchDiff-linux-arm64.AppImage
-            dist/patchdiff-win-x64.zip
-            dist/PatchDiff-win-x64.zip
-            dist/PatchDiff-setup-*.exe
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
           name: PatchDiff ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
           generateReleaseNotes: true
           prerelease: false
-          makeLatest: true
+          makeLatest: false
           allowUpdates: true
+          draft: true
+
+      - name: Upload release assets (replace existing files)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for asset in \
+            PatchDiff-linux-x64.tar.gz \
+            PatchDiff-linux-arm64.tar.gz \
+            PatchDiff-linux-x64.AppImage \
+            PatchDiff-linux-arm64.AppImage \
+            patchdiff-win-x64.zip \
+            PatchDiff-app-win-x64.zip \
+            PatchDiff-setup-${RELEASE_TAG#v}.exe; do
+            test -s "release-assets/$asset" || { echo "Missing release asset: $asset" >&2; exit 1; }
+          done
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          mapfile -t expected_assets < <(for file in release-assets/*; do basename "$file"; done)
+          while IFS= read -r asset; do
+            if ! printf '%s\n' "${expected_assets[@]}" | grep -Fxq -- "$asset"; then
+              gh release delete-asset "$RELEASE_TAG" "$asset" --yes
+            fi
+          done < <(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
+          gh release edit "$RELEASE_TAG" --draft=false --latest

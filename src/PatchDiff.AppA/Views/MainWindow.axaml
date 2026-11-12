@@ -3,121 +3,281 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:PatchDiff.ViewModels"
-        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
+        xmlns:local="clr-namespace:PatchDiff"
+        mc:Ignorable="d" d:DesignWidth="1440" d:DesignHeight="900"
         x:Class="PatchDiff.MainWindow"
-        Title="PatchDiff — watching your assemblies"
-        Width="1280" Height="800"
-        Background="#1e1e22"
-        FontFamily="Segoe UI"
-        Foreground="#e6e6e6">
+        Title="PatchDiff — Diff Workbench"
+        Width="1440" Height="900" MinWidth="1000" MinHeight="650"
+        Background="#0e1219" FontFamily="Segoe UI, Ubuntu, Cantarell, DejaVu Sans, Noto Sans, Arial" Foreground="#e8edf5">
 
-    <Design.DataContext>
-        <vm:MainWindowViewModel />
-    </Design.DataContext>
+  <Window.Resources>
+    <local:PillKindToBrushConverter x:Key="PillBrush" />
+  </Window.Resources>
 
-    <DockPanel>
-        <!-- Menu -->
-        <Menu DockPanel.Dock="Top">
-            <MenuItem Header="_File">
-                <MenuItem Header="Add _DLL to watch…" Click="OnAddDll" />
-                <MenuItem Header="Add all DLLs in _folder…" Click="OnAddFolder" />
-                <MenuItem Header="_Remove selected watch" Click="OnRemoveWatch" />
-                <Separator />
-                <MenuItem Header="Compare _two DLLs…" Click="OnCompareTwo" />
-                <MenuItem Header="_Reload all (F5)" Click="OnReloadAll" />
-                <Separator />
-                <MenuItem Header="Open _reports folder" Click="OnOpenReports" />
-                <MenuItem x:Name="AutoStartItem" Header="Start with Windows" IsChecked="True" Click="OnToggleAutoStart" />
-                <Separator />
-                <MenuItem Header="E_xit" Click="OnExit" />
-            </MenuItem>
-            <MenuItem Header="_Help">
-                <MenuItem Header="Check for _updates…" Click="OnCheckForUpdates" />
-                <Separator />
-                <MenuItem Header="_About PatchDiff" Click="OnAbout" />
-            </MenuItem>
-        </Menu>
+  <Design.DataContext>
+    <vm:MainWindowViewModel />
+  </Design.DataContext>
 
-        <!-- Main Layout -->
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+  <DockPanel LastChildFill="True">
+    <Menu DockPanel.Dock="Top" Background="#111721" Foreground="#d8dfeb" FontSize="12">
+      <MenuItem Header="_File">
+        <MenuItem Header="Add _DLL to watch…" Click="OnAddDll" />
+        <MenuItem Header="Add all DLLs in _folder…" Click="OnAddFolder" />
+        <MenuItem Header="_Remove selected watch" Click="OnRemoveWatch" />
+        <Separator />
+        <MenuItem Header="Compare _two DLLs…" Click="OnCompareTwo" />
+        <MenuItem Header="_Reload all (F5)" Click="OnReloadAll" />
+        <Separator />
+        <MenuItem Header="Open _reports folder" Click="OnOpenReports" />
+        <MenuItem x:Name="AutoStartItem" Header="Start with Windows" IsChecked="True" Click="OnToggleAutoStart" />
+        <Separator />
+        <MenuItem Header="E_xit" Click="OnExit" />
+      </MenuItem>
+      <MenuItem Header="_Help">
+        <MenuItem Header="Check for _updates…" Click="OnCheckForUpdates" />
+        <Separator />
+        <MenuItem Header="_About PatchDiff" Click="OnAbout" />
+      </MenuItem>
+    </Menu>
 
-            <Grid Grid.Row="0" ColumnDefinitions="270,4,*">
-                <!-- Left Rail -->
-                <DockPanel Grid.Column="0" Margin="10,8,0,0">
-                    <TextBox x:Name="SearchBox" Watermark="Search .cs files…" DockPanel.Dock="Top" Margin="0,0,0,8" />
-                    <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Content="Add DLL" Click="OnAddDll" Margin="0,0,6,4" />
-                        <Button Content="Folder…" Click="OnAddFolder" Margin="0,0,6,4" />
-                    </WrapPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="WATCHED ASSEMBLIES" Foreground="#8a8a95" FontSize="10.5" Margin="2,10,0,6" />
-                    <ListBox x:Name="WatchedList" MaxHeight="200" Background="Transparent" BorderThickness="0"
-                             SelectionChanged="OnWatchSelectionChanged">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="2" Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <Border CornerRadius="9" Padding="7,1" VerticalAlignment="Center" Background="#3a3a42">
-                                        <TextBlock Text="{Binding PillText}" FontSize="10" Foreground="#d5d5dc" />
-                                    </Border>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    <TextBlock DockPanel.Dock="Top" Text="SELECTED ASSEMBLY" Foreground="#8a8a95" FontSize="10.5" Margin="2,10,0,6" />
-                    <WrapPanel x:Name="AssemblyActions" IsEnabled="False" Orientation="Horizontal" Margin="0,0,4,6">
-                        <Button Content="Browse" Click="OnBrowse" MinWidth="90" MinHeight="50" Margin="0,0,4,4" />
-                        <Button Content="Diff" Click="OnOpenDiff" MinWidth="90" MinHeight="50" Margin="0,0,4,4" />
-                        <Button Content="History" Click="OnHistory" MinWidth="90" MinHeight="50" Margin="0,0,4,4" />
-                        <Button Content="Re-check" Click="OnRecheck" MinWidth="90" MinHeight="50" Margin="0,0,4,4" />
-                        <Button Content="Remove" Click="OnRemoveWatch" MinWidth="90" MinHeight="50" Margin="0,0,4,4" />
-                    </WrapPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="TIMELINE" Foreground="#8a8a95" FontSize="10.5" Margin="2,10,0,6" />
-                    <ListBox x:Name="TimelineList" Background="Transparent" BorderThickness="0">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="0,1,0,1">
-                                    <Ellipse Width="7" Height="7" VerticalAlignment="Top" Margin="1,5,6,0" Fill="#6f6f79" />
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Badge}" FontSize="9" FontWeight="SemiBold" Foreground="#8a8a95" />
-                                        <TextBlock Text="{Binding Message}" FontSize="10.5" Foreground="#c3c8d2" TextWrapping="Wrap" MaxHeight="30" TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
+    <Border DockPanel.Dock="Top" Background="#151b25" BorderBrush="#283142" BorderThickness="0,0,0,1" Padding="18,13">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="16">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Border Width="36" Height="36" CornerRadius="9" Background="#263746" BorderBrush="#3b5861" BorderThickness="1">
+            <TextBlock Text="±" Foreground="#62ddd0" FontSize="25" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0" />
+          </Border>
+          <StackPanel Spacing="1">
+            <TextBlock Text="PatchDiff" FontWeight="Bold" FontSize="18" />
+            <TextBlock Text="DIFF WORKBENCH" FontSize="10" Foreground="#8390a4" />
+          </StackPanel>
+        </StackPanel>
+        <TextBox x:Name="SearchBox" Grid.Column="1" Watermark="Filter watched assemblies…" MaxWidth="520" TextChanged="OnSearchAssemblies"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" Height="38" Padding="12,7"
+                 Background="#0f141d" BorderBrush="#30394a" />
+        <Button Grid.Column="2" Classes="secondary" Content="Compare DLLs" Click="OnCompareTwo" VerticalAlignment="Center" />
+        <Button Grid.Column="3" Classes="primary" Click="OnAddDll" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Image Classes="darkIcon" Source="{StaticResource IconWatchAddDark}" Width="14" Height="14" VerticalAlignment="Center" />
+            <Image Classes="lightIcon" Source="{StaticResource IconWatchAdd}" Width="14" Height="14" VerticalAlignment="Center" />
+            <Image Classes="whiteIcon" Source="{StaticResource IconWatchAddWhite}" Width="14" Height="14" VerticalAlignment="Center" />
+            <TextBlock Text="Add DLL" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </Border>
 
-                <!-- Center: Tabs + Log -->
-                <DockPanel Grid.Column="2" Margin="8,8,8,0">
-                    <ListBox DockPanel.Dock="Bottom" x:Name="LogList" Height="90" Background="#18181c"
-                             FontFamily="Consolas" FontSize="11" Foreground="#9ee49e" />
-                    <TabControl x:Name="WorkTabs" Background="#1b1b1f" BorderBrush="#33333a" BorderThickness="1" Padding="0">
-                        <TabControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Header}" Margin="2,0,8,0" VerticalAlignment="Center" />
-                                    <Button Content="✕" Command="{Binding CloseCommand}" Margin="0,0,2,0"
-                                            FontSize="10" Padding="2,0" Background="Transparent" BorderThickness="0" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </TabControl.ItemTemplate>
-                        <TabControl.ContentTemplate>
-                            <DataTemplate>
-                                <ContentPresenter Content="{Binding Content}" />
-                            </DataTemplate>
-                        </TabControl.ContentTemplate>
-                    </TabControl>
-                </DockPanel>
+    <Grid RowDefinitions="*,Auto">
+      <Grid Grid.Row="0" ColumnDefinitions="260,*,300">
+        <Border Grid.Column="0" Background="#131923" BorderBrush="#283142" BorderThickness="0,0,1,0" Padding="10">
+          <DockPanel LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top" Spacing="3">
+              <TextBlock Text="WORKSPACE" Classes="section-label" Margin="5,0,0,3" />
+              <Button Classes="nav active" Click="OnShowOverview">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Image Source="{StaticResource IconDashboard}" Width="16" Height="16" />
+                  <TextBlock Text="Overview" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Button Classes="nav" Click="OnCompareTwo">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Image Source="{StaticResource IconCompare}" Width="16" Height="16" />
+                  <TextBlock Text="Compare DLLs" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Button Classes="nav" Click="OnOpenReports">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Image Source="{StaticResource IconReport}" Width="16" Height="16" />
+                  <TextBlock Text="Open Reports Folder" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <TextBlock Text="WATCHING ASSEMBLIES" Classes="section-label" Margin="5,13,0,3" />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,10,0,0">
+              <Button Classes="nav" Click="OnAddFolder">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Image Source="{StaticResource IconWatchAdd}" Width="16" Height="16" />
+                  <TextBlock Text="Add a folder" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Button Classes="nav" Click="OnSettings">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Image Source="{StaticResource IconSettings}" Width="16" Height="16" />
+                  <TextBlock Text="Settings" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Border Height="1" Background="#283142" Margin="4,8" />
+              <TextBlock Text="PATH" Classes="section-label" Margin="5,0,0,0" />
+              <StackPanel x:Name="PathRows" Spacing="6" Margin="5,4,0,2" />
+            </StackPanel>
+
+            <ListBox x:Name="WatchedList" Background="Transparent" BorderThickness="0" Padding="0,3"
+                     SelectionChanged="OnWatchSelectionChanged">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Border Classes="watch-row" CornerRadius="6" Padding="9" Margin="0,1">
+                    <Grid ColumnDefinitions="9,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="7" RowSpacing="4">
+                      <Ellipse Width="7" Height="7" Fill="{Binding PillKind, Converter={StaticResource PillBrush}}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                 TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Meta1}" FontSize="10" Foreground="#8491a5"
+                                 TextTrimming="CharacterEllipsis" />
+                      <Border Grid.Column="2" Grid.RowSpan="2" CornerRadius="9" Padding="7,3" Background="#222c39" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding PillText}" FontSize="9" Foreground="#9ca9bb" />
+                      </Border>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+
+        <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
+          <Border Grid.Row="0" Background="#10161f" BorderBrush="#283142" BorderThickness="0,0,0,1" Padding="15,9">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                <TextBlock Text="WORKSPACE" Classes="section-label" VerticalAlignment="Center" />
+                <TextBlock Text="/" Foreground="#657287" />
+                <TextBlock Text="Diff workbench" FontSize="12" Foreground="#d5dce7" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="toolbar" Click="OnReloadAll">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <Image Source="{StaticResource IconRefresh}" Width="13" Height="13" VerticalAlignment="Center" />
+                  <TextBlock Text="Recheck all" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="2" Classes="toolbar" Click="OnBrowse">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <Image Source="{StaticResource IconBrowse}" Width="13" Height="13" VerticalAlignment="Center" />
+                  <TextBlock Text="Browse" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
             </Grid>
-
-            <!-- Footer -->
-            <Border Grid.Row="1" Background="#1b1b1f" BorderBrush="#33333a" BorderThickness="0,1,0,0" Padding="12,5">
-                <TextBlock x:Name="FooterText" FontSize="11.5" Foreground="#9a9aa4" />
-            </Border>
+          </Border>
+          <TabControl x:Name="WorkTabs" Grid.Row="1" Background="#0e1219" BorderThickness="0" Padding="0">
+            <TabControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="2,0">
+                  <TextBlock Text="{Binding Header}" FontSize="12" VerticalAlignment="Center" />
+                  <Button Content="×" Command="{Binding CloseCommand}" Padding="0" FontSize="16" MinWidth="28" MinHeight="26"
+                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center" VerticalAlignment="Center"
+                          Background="Transparent" BorderThickness="0" CornerRadius="7" Foreground="#8995a7" IsVisible="{Binding IsClosable}" />
+                </StackPanel>
+              </DataTemplate>
+            </TabControl.ItemTemplate>
+            <TabControl.ContentTemplate>
+              <DataTemplate><ContentPresenter Content="{Binding Content}" /></DataTemplate>
+            </TabControl.ContentTemplate>
+          </TabControl>
+          <Border Grid.Row="2" Background="#10161f" BorderBrush="#283142" BorderThickness="0,1,0,0" Padding="14,7">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" VerticalAlignment="Top" Margin="0,1,14,0">
+                <TextBlock Text="ACTIVITY LOG" Classes="section-label" VerticalAlignment="Center" />
+                <Button Content="Clear" Classes="link" Click="OnClearLog" VerticalAlignment="Center" />
+              </StackPanel>
+              <ListBox x:Name="LogList" Height="88" Background="Transparent" BorderThickness="0" Padding="0" FontSize="11">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Border BorderBrush="#1b2330" BorderThickness="0,0,0,1" Padding="2,4">
+                      <StackPanel Orientation="Horizontal" Spacing="9">
+                        <TextBlock Text="{Binding When}" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="10"
+                                   Foreground="#657287" VerticalAlignment="Center" />
+                        <Ellipse Width="6" Height="6" Fill="{Binding DotBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Message}" FontSize="11" Foreground="{Binding MessageBrush}"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </Border>
         </Grid>
-    </DockPanel>
+
+        <Border Grid.Column="2" Background="#131923" BorderBrush="#283142" BorderThickness="1,0,0,0" Padding="12">
+          <DockPanel LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top" Spacing="5">
+              <TextBlock Text="INSPECTOR" Classes="section-label" />
+              <TextBlock x:Name="InspectorName" Text="Select an assembly" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,2,0,0" />
+              <TextBlock x:Name="InspectorVersion" Text="Watch a DLL to capture its baseline" FontSize="11" Foreground="#8d99ac" TextWrapping="Wrap" />
+              <TextBlock x:Name="InspectorPath" FontSize="10" Foreground="#748197" TextWrapping="Wrap" Margin="0,0,0,8" />
+              <StackPanel x:Name="AssemblyActions" Spacing="5" IsEnabled="False">
+                <Button Classes="primary" Click="OnOpenDiff">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <!-- Dark icon on the bright teal (enabled); default light icon when
+                         disabled; white icon on hover (matches the white label). -->
+                    <Image Classes="darkIcon" Source="{StaticResource IconCompareDark}" Width="15" Height="15" />
+                    <Image Classes="lightIcon" Source="{StaticResource IconCompare}" Width="15" Height="15" />
+                    <Image Classes="whiteIcon" Source="{StaticResource IconCompareWhite}" Width="15" Height="15" />
+                    <TextBlock Text="Open latest diff" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="secondary" Click="OnBrowse">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Image Source="{StaticResource IconBrowse}" Width="15" Height="15" />
+                    <TextBlock Text="Browse decompiled code" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="secondary" Click="OnHistory">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Image Source="{StaticResource IconHistory}" Width="15" Height="15" />
+                    <TextBlock Text="Revision history" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="secondary" Click="OnExportDecodedDll">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Image Source="{StaticResource IconExport}" Width="15" Height="15" />
+                    <TextBlock Text="Export decoded DLL" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <Button x:Name="ExportCsBtn" Classes="secondary" Click="OnExportCsFile" IsEnabled="False" ToolTip.Tip="Select a class in the Browse tab first">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Image Source="{StaticResource IconExport}" Width="15" Height="15" />
+                    <TextBlock Text="Export C# file" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+                <!-- Auto-width columns keep Remove right next to Recheck instead of
+                     stretching them to opposite edges. -->
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                  <Button Classes="toolbar" Click="OnRecheck">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Image Source="{StaticResource IconRefresh}" Width="13" Height="13" VerticalAlignment="Center" />
+                      <TextBlock Text="Recheck" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="toolbar danger" Content="Remove" Click="OnRemoveWatch" />
+                </StackPanel>
+              </StackPanel>
+              <Border Height="1" Background="#283142" Margin="0,9,0,8" />
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="RECENT ACTIVITY" Classes="section-label" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Content="Clear" Classes="link" Click="OnClearTimeline" />
+              </Grid>
+            </StackPanel>
+            <ListBox x:Name="TimelineList" Background="Transparent" BorderThickness="0" Padding="0,5">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="#283142" BorderThickness="0,0,0,1" Padding="2,8">
+                    <StackPanel Spacing="3">
+                      <TextBlock Text="{Binding Badge}" FontSize="10" FontWeight="Bold" Foreground="#6edbcf" />
+                      <TextBlock Text="{Binding Message}" FontSize="11" Foreground="#c1cad8" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding When}" FontSize="10" Foreground="#748197" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="1" Background="#10161f" BorderBrush="#283142" BorderThickness="0,1,0,0" Padding="12,5">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock x:Name="FooterText" FontSize="11" Foreground="#8995a8" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="PATCHDIFF  ·  LOCAL FIRST" FontSize="10" Foreground="#657287" VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+    </Grid>
+  </DockPanel>
 </Window>

@@ -11,17 +11,50 @@ namespace PatchDiff.Views;
 
 public partial class DiffView : UserControl
 {
-    readonly AssemblyDiffResult _diff;
+    // Assigned only when the view is constructed via the parameterized constructor;
+    // the parameterless constructor exists for runtime-XAML support only.
+    readonly AssemblyDiffResult _diff = null!;
     readonly ObservableCollection<SectionVm> _sections = new();
+    Action? _saveToHistory;
+
+    /// <summary>Shows the "Save to History" button (manual compares, or watch diffs when
+    /// auto-save history is off). One-shot: the button hides after saving.</summary>
+    public void EnableSaveToHistory(Action save)
+    {
+        _saveToHistory = save;
+        SaveHistoryButton.IsVisible = true;
+    }
+
+    void OnSaveToHistory(object? sender, RoutedEventArgs e)
+    {
+        _saveToHistory?.Invoke();
+        SaveHistoryButton.IsVisible = false;
+    }
+
+    /// <summary>
+    /// For runtime-XAML support only — normal usage goes through the parameterized
+    /// constructor; the diff view is not usable without an <see cref="AssemblyDiffResult"/>.
+    /// </summary>
+    public DiffView()
+    {
+        InitializeComponent();
+    }
 
     public DiffView(AssemblyDiffResult diff)
     {
         InitializeComponent();
         _diff = diff;
         TitleText.Text = diff.Title;
-        MetaText.Text = $"+{diff.Added} added · −{diff.Removed} removed · ~{diff.Modified} modified · baseline {diff.OldSha}… → current {diff.NewSha}…";
 
-        // per-type line deltas for the badges (same math as the HTML report)
+        // per-type line deltas for the badges (same math as the HTML report).
+        // SectionVm does not raise change notifications, so IsExpanded must be set
+        // at creation time — mutating it after the first Rebuild() is invisible to
+        // the already-realized ItemsControl bindings.
+        var sectionIndex = 0;
+        // Line-level totals for the header chips. These must match the per-section
+        // pills exactly (the header used to report TYPE counts instead, so a diff with
+        // 17 added lines across 2 added types claimed "+2 added").
+        int totalAdded = 0, totalRemoved = 0, totalModified = 0;
         foreach (var td in diff.TypeDiffs)
         {
             int added = 0, removed = 0, modified = 0;
@@ -44,29 +77,58 @@ public partial class DiffView : UserControl
                     NewKind = nt ?? "Unchanged",
                 });
             }
-            // monospace (≈7.2px/char at 11.5px) + gutter — gives rows a real horizontal
-            // extent so each pane's horizontal scrollbar actually appears
-            var maxLen = rows.Max(r => Math.Max(r.OldText.Length, r.NewText.Length));
-            foreach (var r in rows) r.MinWidth = 44 + 7.2 * maxLen;
+            // Per-side panes: each side owns its horizontal scrollbar, so a long
+            // line on one side never stretches or misaligns the other side.
+            totalAdded += added;
+            totalRemoved += removed;
+            totalModified += modified;
             _sections.Add(new SectionVm
             {
                 FullName = td.FullName,
                 Kind = td.DisplayChange,
                 AddBadge = added > 0 ? $"+{added}" : "",
                 DelBadge = removed > 0 ? $"−{removed}" : "",
-                ModBadge = Math.Max(0, modified - added) > 0 ? $"~{Math.Max(0, modified - added)}" : "",
-                Rows = rows,
+                ModBadge = modified > 0 ? $"~{modified}" : "",
+                OldRows = rows.Select(r => new LineVm { No = r.OldNo, Text = r.OldText, Kind = r.OldKind }).ToList(),
+                NewRows = rows.Select(r => new LineVm { No = r.NewNo, Text = r.NewText, Kind = r.NewKind }).ToList(),
+                // open the first changed type by default — matches the old auto-selected UX
+                IsExpanded = sectionIndex == 0,
             });
+            sectionIndex++;
         }
 
+        BuildMeta(diff, totalAdded, totalRemoved, totalModified);
         Rebuild(filterQuery: "");
-        // open the first changed type by default — matches the old auto-selected UX
-        if (_sections.Count > 0)
-        {
-            _sections[0].IsExpanded = true;
-            Rebuild(filterQuery: "");
-        }
     }
+
+    /// <summary>Header meta as colored line-delta chips + baseline→current hashes.
+    /// Counts are LINE deltas summed from the sections, so they always agree with the
+    /// per-type pills underneath.</summary>
+    void BuildMeta(AssemblyDiffResult diff, int added, int removed, int modified)
+    {
+        MetaPanel.Children.Add(DeltaChip($"+{added} lines added", "#8fe0a0", "#1e3a2a"));
+        MetaPanel.Children.Add(DeltaChip($"−{removed} lines removed", "#ffb0b0", "#3a1e1e"));
+        MetaPanel.Children.Add(DeltaChip($"~{modified} lines modified", "#ffe0a0", "#3a2f1e"));
+        HashText.Text = $"baseline {Short(diff.OldSha)} → current {Short(diff.NewSha)}";
+    }
+
+    static string Short(string sha) => string.IsNullOrEmpty(sha) ? "unknown" : sha[..Math.Min(12, sha.Length)];
+
+    static Avalonia.Controls.Border DeltaChip(string text, string fg, string bg) => new()
+    {
+        CornerRadius = new Avalonia.CornerRadius(9),
+        Padding = new Avalonia.Thickness(9, 3),
+        Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(bg)),
+        Child = new TextBlock
+        {
+            Text = text,
+            FontSize = 11,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(fg)),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+        },
+        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+    };
 
     void Rebuild(string filterQuery)
     {
@@ -75,45 +137,66 @@ public partial class DiffView : UserControl
             filterQuery.Length == 0 || s.FullName.Contains(filterQuery, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
+    // Expand/collapse only flips SectionVm.IsExpanded; the bindings update in place.
+    // (Rebuilding the ItemsSource here used to reset the scroll position to the top.)
     void OnToggleSection(object? sender, RoutedEventArgs e)
     {
         if (sender is Button b && b.DataContext is SectionVm s)
-        {
             s.IsExpanded = !s.IsExpanded;
-            Rebuild(FilterBox.Text?.Trim() ?? "");
-        }
     }
 
     void OnExpandAll(object? sender, RoutedEventArgs e)
     {
         foreach (var s in _sections) s.IsExpanded = true;
-        Rebuild(FilterBox.Text?.Trim() ?? "");
     }
 
     void OnCollapseAll(object? sender, RoutedEventArgs e)
     {
         foreach (var s in _sections) s.IsExpanded = false;
-        Rebuild(FilterBox.Text?.Trim() ?? "");
     }
 
     void OnFilter(object? sender, RoutedEventArgs e) => Rebuild(FilterBox.Text?.Trim() ?? "");
 }
 
-/// <summary>A collapsible per-type section header, with badges and the paired rows.</summary>
-public sealed class SectionVm
+/// <summary>A collapsible per-type section header, with badges and the per-side rows.
+/// Implements INotifyPropertyChanged so expand/collapse updates the bound IsVisible
+/// and chevron in place (no ItemsSource rebuild, so the scroll position is kept).</summary>
+public sealed class SectionVm : System.ComponentModel.INotifyPropertyChanged
 {
     public string FullName { get; init; } = "";
     public string Kind { get; init; } = "";
+
+    /// <summary>"ADDED"/"REMOVED"/"MODIFIED" chip label; empty for unchanged types.</summary>
+    public string KindChip => Kind is "Added" or "Removed" or "Modified" ? Kind.ToUpperInvariant() : "";
     public string AddBadge { get; init; } = "";
     public string DelBadge { get; init; } = "";
     public string ModBadge { get; init; } = "";
     public string ChevronText => IsExpanded ? "▾" : "▸";
-    public bool IsExpanded { get; set; }
-    public List<DiffRowVm> Rows { get; init; } = new();
+
+    bool _isExpanded;
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            PropertyChanged?.Invoke(this, new(nameof(IsExpanded)));
+            PropertyChanged?.Invoke(this, new(nameof(ChevronText)));
+        }
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>PREV pane lines. Same count/heights as NewRows → the panes stay aligned.</summary>
+    public List<LineVm> OldRows { get; init; } = new();
+    /// <summary>NOW pane lines.</summary>
+    public List<LineVm> NewRows { get; init; } = new();
 }
 
-/// <summary>One paired line: previous column + new column, aligned in one row.</summary>
-public sealed class DiffRowVm
+/// <summary>Intermediate paired line from DiffService.SideBySide, split into per-side
+/// LineVms when a section is built.</summary>
+public sealed record DiffRowVm
 {
     public string OldNo { get; init; } = "—";
     public string OldText { get; init; } = "";
@@ -121,5 +204,12 @@ public sealed class DiffRowVm
     public string NewNo { get; init; } = "—";
     public string NewText { get; init; } = "";
     public string NewKind { get; init; } = "";
-    public double MinWidth { get; set; }
+}
+
+/// <summary>One decompiled line for one side of a diff section.</summary>
+public sealed class LineVm
+{
+    public string No { get; init; } = "—";
+    public string Text { get; init; } = "";
+    public string Kind { get; init; } = "Unchanged";
 }

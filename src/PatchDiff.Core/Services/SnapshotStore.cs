@@ -12,11 +12,24 @@ namespace PatchDiff.Services;
 /// </summary>
 public sealed class SnapshotStore
 {
-    /// <summary>Data root; PATCHDIFF_DATA_DIR overrides it (used for portable/demo setups).</summary>
-    public static string DataRoot =>
-        Environment.GetEnvironmentVariable("PATCHDIFF_DATA_DIR") is { Length: > 0 } dir
-            ? dir
+    /// <summary>The base data root: PATCHDIFF_DATA_DIR (portable/demo setups) or the
+    /// per-user default. Settings always live here, even when CustomRoot redirects the stores.</summary>
+    public static string DefaultDataRoot =>
+        Environment.GetEnvironmentVariable("PATCHDIFF_DATA_DIR") is { Length: > 0 } envDir
+            ? envDir
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PatchDiff");
+
+    /// <summary>Optional user-chosen data folder (settings.json DataFolder). The env var still
+    /// wins; must be applied before any store access (the GUI sets it in Program.Main).</summary>
+    public static string? CustomRoot { get; set; }
+
+    /// <summary>Data root the stores actually use.</summary>
+    public static string DataRoot =>
+        Environment.GetEnvironmentVariable("PATCHDIFF_DATA_DIR") is { Length: > 0 } envDir
+            ? envDir
+            : !string.IsNullOrWhiteSpace(CustomRoot)
+                ? CustomRoot
+                : DefaultDataRoot;
 
     static readonly string Root = Path.Combine(DataRoot, "Snapshots");
 
@@ -24,12 +37,22 @@ public sealed class SnapshotStore
 
     static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
+    /// <summary>Stable per-assembly storage key derived from its full path.
+    /// Windows and macOS use case-insensitive filesystems, so the path is lowercased
+    /// there to keep "Game.dll" and "game.dll" on one key. Linux filesystems are
+    /// case-sensitive — lowercasing there would silently merge two distinct files
+    /// into a single snapshot/history folder, so the path is used verbatim.</summary>
     public static string KeyNameFor(string dllPath)
     {
-        var normalized = Path.GetFullPath(dllPath).ToLowerInvariant();
+        var full = Path.GetFullPath(dllPath);
+        var normalized = IsCaseInsensitiveFileSystem ? full.ToLowerInvariant() : full;
         return Convert.ToHexString(SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(normalized)))[..16];
     }
+
+    /// <summary>True on Windows and macOS (case-insensitive by default), false on Linux.</summary>
+    static bool IsCaseInsensitiveFileSystem =>
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
 
     public static string FolderFor(string dllPath) => Path.Combine(Root, KeyNameFor(dllPath));
 

@@ -5,12 +5,12 @@
 **Watch .NET / Unity-game DLLs — get a decompiled diff every time they're patched.**
 
 Decompiles with the ILSpy engine · snapshot baselines · automatic patch detection ·
-revision archive with history, labels and a diff matrix · decompiled source browser ·
-HTML diff reports · built-in updater · GUI and CLI for **Windows and Linux**.
+revision archive with history · decompiled source browser · HTML diff reports ·
+built-in updater · Diff Workbench GUI and CLI for **Windows and Linux**.
 
 | | |
 |:--|:--|
-| **Platform** | Windows (WPF) · Linux x64/ARM64 (Avalonia) |
+| **Platform** | Windows · Linux x64/ARM64 (Avalonia) |
 | **Runtime** | .NET 8 — self-contained, no install needed |
 | **Engine** | ILSpy (`ICSharpCode.Decompiler`) |
 | **Diff** | DiffPlex, line-level side-by-side |
@@ -22,8 +22,13 @@ HTML diff reports · built-in updater · GUI and CLI for **Windows and Linux**.
 
 ## 🤖 Disclosure
 
-This project is vibe-coded using **5 AI models simultaneously**:
-**Chimp**, **Alvin**, **Gal**, **Farway**, and **GLM-TDC**.
+This project is vibe-coded using **6 AI models simultaneously**:
+**Chimp**, **Alvin**, **Gal**, **Farway**, **GLM-TDC**, and **Arbitration**.
+
+Each one ran in its own lane — implementation, assets and docs, QA and audit, review,
+and arbitration — and they coordinated through a shared message hub rather than a
+single chat. Every line of code, every icon, and every release note in this repository
+was produced by one of them.
 
 This is a Do Whatever The Fuck project — you are free to tear everything down and rebuild it.
 
@@ -46,17 +51,15 @@ touching the game files themselves.
 | | Feature | What it does |
 |---|---|---|
 | 👁 | **Watch mode** | Point PatchDiff at one or more DLLs; it detects every update automatically (`FileSystemWatcher` + polling fallback), re-decompiles, and diffs against the baseline. |
-| ⚡ | **Compare mode** | One-shot diff of any two DLLs — `patchdiff compare old.dll new.dll`. |
-| 🔍 | **Decompiled diffs** | Full C# decompilation via `ICSharpCode.Decompiler` (the ILSpy engine). The diff view uses collapsible per-type sections with line-delta badges (`+n` green / `−n` red / `~n` yellow) and a kind pill, plus **Expand all / Collapse all** controls. Inside each expanded section: refined side-by-side rows with line numbers, 3px left-edge accents, tinted text, and ellipsised long lines (no horizontal scrollbar). First section auto-expands. The diff panes scroll independently: one shared vertical scrollbar moves both versions together, and each side has its own horizontal scrollbar for reading long lines. |
+| ⚡ | **Compare mode** | One-shot diff of any two DLLs — `patchdiff compare old.dll new.dll`, or **Compare versions** / **Compare DLLs** in the GUI. |
+| 🔍 | **Decompiled diffs** | Full C# decompilation via `ICSharpCode.Decompiler` (the ILSpy engine). Collapsible per-type sections with line-delta badges (`+n` green / `−n` red / `~n` yellow), **Expand all / Collapse all**, per-type filter, refined side-by-side rows with line numbers, 3px left-edge accents, tinted text and ellipsised long lines. One shared vertical scrollbar moves both versions together; each side keeps its own horizontal scrollbar. |
 | 🌳 | **Assembly browser** | ILSpy-style namespace → type → member tree with the decompiled source beside it; clicking a member scrolls to and highlights it; one-click *diff vs previous / current* and `.cs` export. |
 | 🗄 | **Revision archive** | Every version of every watched DLL is kept: a manifest per revision (SHA-256, assembly version, timestamp, type count) plus the original DLL bytes, so you can study or restore any old build. |
-| 🕘 | **History & restore** | Compare any two archived revisions, restore an old build with one click, and name revisions (e.g. *"Season 4 launch"*) so the history reads like a changelog. *Diff vs current* diffs the clicked revision against the baseline. |
-| 🔢 | **Revision matrix** | A grid of every archived revision; click a cell to compute that exact pair's diff, click again to open it. Compare any two versions, not just neighbours. |
+| 🕘 | **History & restore** | Compare any revision against the previous one or the current baseline, and save an old build back to disk with one click. |
 | 📄 | **HTML reports** | Self-contained, start-collapsed diff reports for every detected patch. |
-| 🔎 | **Type search** | Search every decompiled `.cs` file across all watched baselines at once. |
-| 💾 | **Persistence & auto-start** | Watch list, timeline, baselines and window state survive restarts; optional *Start with Windows* so a rebooted PC keeps watching. |
-| 📥 | **Built-in updater** | Help ▸ *Check for updates* checks GitHub for the latest version — the full payload (exe + native DLLs) is applied to the install folder via robocopy mirror; the result is recorded and reported at next launch. Unchanged files keep their old dates (that is normal, not a failed update). |
-| 🔔 | **System tray** | Close-to-tray, tray menu and balloon alerts on detected patches; single-instance; drag & drop DLLs or folders. |
+| 💾 | **Persistence** | Watch list, timeline, baselines and window state survive restarts; optional *Start with Windows* (Windows) so a rebooted PC keeps watching. |
+| 📥 | **Built-in updater** | Help ▸ *Check for updates* checks GitHub for the latest version — on Windows the full payload (exe + native DLLs) is applied to the install folder via robocopy mirror and the result is reported at next launch; on other platforms it opens the release page for a manual update. |
+| 🔒 | **Local first** | Everything — DLLs, baselines, reports, settings — stays on your device. Nothing is uploaded, nothing phones home beyond the update check. |
 
 <details>
 <summary><b>🧠 Why snapshot baselines instead of diffing on demand?</b></summary>
@@ -65,158 +68,43 @@ A game update replaces the DLL *in place* — the old bytes are gone the moment 
 installer runs. PatchDiff keeps a decompiled snapshot of every version it has seen, so:
 
 - you can diff against **any** past revision, not just the previous one
-- the revision matrix lets you compare any two versions you've ever archived
 - if you weren't running PatchDiff during an update, the next launch still archives
   the new version and keeps the old baseline intact
 - `restore` can put an old build back on disk
 
 </details>
 
-## 🚀 Install
+## 🖥 The Diff Workbench
 
-Download the package for your operating system: Windows and Linux x64/ARM64 builds are available.
+The desktop app is a three-pane workbench, built for the watch → patch → diff loop:
 
-### Windows
+- **Left rail — navigation & watching.** Overview, *Compare versions* and *Reports*
+  live at the top; below them your watched assemblies with live status pills
+  (`UP TO DATE` / `ANALYZING…` / `NEW BASELINE` / `UPDATED` / `MISSING`), plus
+  *Add a folder* and *Settings*. A filter box narrows the list as it grows.
+- **Center — the workspace.** Closable tabs for everything you open: **Diff**
+  (side-by-side decompiled diff), **Browse** (decompiled source browser), **History**
+  (revision archive). A toolbar row offers *Recheck all* and *Browse*; an activity log
+  streams every detection, decompile and report at the bottom.
+- **Right — the inspector.** Details for the selected assembly (name, version, path)
+  with one-click actions — *Open latest diff*, *Browse decompiled code*,
+  *Revision history*, *Recheck*, *Remove* — and a *Recent activity* timeline.
+- **Everywhere.** Dark slate theme with cyan/violet accents, a header that puts
+  *Compare DLLs* and *＋ Add DLL* one click away, and a footer that tells you where
+  your data lives.
 
-| Artifact | What it is |
-|---|---|
-| `PatchDiff-setup-x.y.z.exe` | **Installer** — per-user, no admin required; directory chooser, optional desktop shortcut, Start-menu entry, uninstaller |
-| `PatchDiff-win-x64.zip` | **Portable desktop app** — extract anywhere user-writable and run `PatchDiff.exe` |
-| `patchdiff-win-x64.zip` | **CLI** — extract and put `patchdiff.exe` on your `PATH` |
+First run: hit **＋ Add DLL**, pick e.g. `<game>_Data\Managed\Assembly-CSharp.dll`,
+and PatchDiff captures the baseline. From then on it watches silently — every patch
+lands in the timeline, the diff tabs and the reports folder.
 
-Both are self-contained: **no .NET runtime install required**.
-
-### Linux
-
-Choose the package matching your CPU architecture:
-
-| Package | Architecture | How to run |
-|---|---|---|
-| `PatchDiff-linux-x64.AppImage` | x86-64 / AMD64 | `chmod +x PatchDiff-linux-x64.AppImage && ./PatchDiff-linux-x64.AppImage` |
-| `PatchDiff-linux-arm64.AppImage` | ARM64 / AArch64 | `chmod +x PatchDiff-linux-arm64.AppImage && ./PatchDiff-linux-arm64.AppImage` |
-| `PatchDiff-linux-x64.tar.gz` | x86-64 / AMD64 | Extract, then run `./PatchDiff` |
-| `PatchDiff-linux-arm64.tar.gz` | ARM64 / AArch64 | Extract, then run `./PatchDiff` |
-
-#### AppImage
-
-Download the AppImage for your architecture, then:
-
-```bash
-chmod +x PatchDiff-linux-x64.AppImage
-./PatchDiff-linux-x64.AppImage
-```
-
-For ARM64, use `PatchDiff-linux-arm64.AppImage` instead. AppImages are self-contained and do not require a .NET runtime. If your distribution does not support AppImage out of the box, install FUSE 2 (Ubuntu/Debian: `sudo apt install libfuse2`).
-
-#### Tarball
-
-Extract the matching `PatchDiff-linux-x64.tar.gz` or `PatchDiff-linux-arm64.tar.gz` into a user-writable directory. The archive contains the GUI (`PatchDiff`) and CLI (`patchdiff-cli`):
-
-```bash
-tar -xzf PatchDiff-linux-x64.tar.gz -C ~/Applications/PatchDiff
-cd ~/Applications/PatchDiff
-chmod +x PatchDiff patchdiff-cli
-./PatchDiff                 # GUI
-./patchdiff-cli version     # CLI
-```
-
-The GUI uses Avalonia and supports X11/Wayland. The self-contained binaries need no .NET runtime. On Debian/Ubuntu, install these shared libraries if they are not already present:
-
-```bash
-sudo apt install libx11-6 libice6 libsm6 libfontconfig1
-```
-
-### Build from source (Windows)
-
-The Windows build instructions below use the WPF desktop app. For Linux, see the separate Avalonia instructions below.
-
-Requires [git](https://git-scm.com) and the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
-
-```bat
-git clone https://github.com/Tester12-SR-24/PatchDiff.git
-cd PatchDiff
-git checkout main
-dotnet build
-```
-
-On Windows, this builds the solution — Core library, CLI and WPF app:
-
-```bat
-:: run the CLI
-dotnet run --project src\PatchDiff.Cli -- compare a.dll b.dll
-
-:: run the GUI
-start src\PatchDiff.App\bin\Debug\net8.0-windows\PatchDiff.exe
-```
-
-<details>
-<summary><b>📦 Self-contained single-file builds</b></summary>
-
-```bat
-:: CLI — runs on any x64 Windows machine, no .NET install required
-dotnet publish src\PatchDiff.Cli -c Release -r win-x64 --self-contained true ^
-  /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true ^
-  -o publish\cli
-
-:: GUI app
-dotnet publish src\PatchDiff.App -c Release -r win-x64 --self-contained true ^
-  /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true ^
-  -o publish\app
-```
-
-Zip `publish\cli` as `patchdiff-win-x64.zip` and `publish\app` as
-`PatchDiff-win-x64.zip` to create the Windows distributable package.
-
-</details>
-
-### Build from source (Linux)
-
-Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) and the Linux desktop libraries listed above. The Avalonia app is in `src/PatchDiff.AppA` (the WPF app is Windows-only).
-
-```bash
-# Run from source
-dotnet run --project src/PatchDiff.AppA
-dotnet run --project src/PatchDiff.Cli -- compare old.dll new.dll
-
-# Publish self-contained Linux x64 builds (use linux-arm64 for ARM64)
-dotnet publish src/PatchDiff.AppA -c Release -r linux-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/linux-x64/app
-dotnet publish src/PatchDiff.Cli -c Release -r linux-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:PublishTrimmed=false -o publish/linux-x64/cli
-```
-
-## 🖥 Usage
-
-### GUI
-
-Run `PatchDiff.exe`. On first launch you get a short welcome screen with three actions:
-
-- **Watch a real DLL…** — pick e.g. `<game>_Data\Managed\Assembly-CSharp.dll`
-- **Watch a whole folder…** — pick any DLL inside `…_Data\Managed` to watch them all
-- **Compare two DLLs…** — one-shot diff without watching anything
-
-The window is split into three areas:
-
-- **Left rail** — a search box over every decompiled `.cs` file, your watched assemblies with
-  live status pills (`UP TO DATE` / `ANALYZING…` / `NEW BASELINE` / `UPDATED` / `MISSING`),
-  a grid of actions for the selected assembly (Browse, Diff, History, Sources, Report,
-  Re-check, Remove), and a timeline of detected patches.
-- **Center tabs** — Overview plus one tab per view you open: **Browse** (decompiled source
-  browser), **Diff** (side-by-side coloured diff), **History** (revisions, labels, matrix,
-  restore).
-- **Status bar** — watched count, timeline events, and where your data lives.
-
-Closing the window keeps PatchDiff running in the tray, so it keeps watching. Use the tray
-menu (or **File ▸ Exit**) to quit properly.
-
-### CLI
+## ⌨️ CLI
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────┐
 │  C:\> patchdiff compare old\Assembly-CSharp.dll new\Assembly-CSharp.dll    │
 │                                                                            │
 │  PatchDiff — decompiled diff                                               │
-│  Sample.dll: 2 types added, 0 removed, 5 modified                            │
+│  Sample.dll: 2 types added, 0 removed, 5 modified                          │
 │  Report: C:\Users\you\AppData\Local\PatchDiff\Reports\demo.html            │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -259,10 +147,106 @@ type counts and writes a self-contained HTML report.
 
 Every check saves the analyzed version as the new baseline, so each diff shows exactly
 one patch's changes — not a cumulative diff since the first version ever seen. Older
-changes live in History/Revisions, where they can be diffed against each other at any time.
+changes live in History, where they can be diffed against the current baseline at any time.
+
+## 🚀 Install
+
+Download the package for your operating system: Windows and Linux x64/ARM64 builds are available.
+
+### Windows
+
+| Artifact | What it is |
+|---|---|
+| `PatchDiff-setup-x.y.z.exe` | **Installer** — per-user, no admin required; directory chooser, optional desktop shortcut, Start-menu entry, uninstaller |
+| `PatchDiff-app-win-x64.zip` | **Portable desktop app** — extract anywhere user-writable and run `PatchDiff.exe` |
+| `patchdiff-win-x64.zip` | **CLI** — extract and put `patchdiff.exe` on your `PATH` |
+
+All are self-contained: **no .NET runtime install required**.
+
+### Linux
+
+Choose the package matching your CPU architecture:
+
+| Package | Architecture | How to run |
+|---|---|---|
+| `PatchDiff-linux-x64.AppImage` | x86-64 / AMD64 | `chmod +x PatchDiff-linux-x64.AppImage && ./PatchDiff-linux-x64.AppImage` |
+| `PatchDiff-linux-arm64.AppImage` | ARM64 / AArch64 | `chmod +x PatchDiff-linux-arm64.AppImage && ./PatchDiff-linux-arm64.AppImage` |
+| `PatchDiff-linux-x64.tar.gz` | x86-64 / AMD64 | Extract, then run `./PatchDiff` |
+| `PatchDiff-linux-arm64.tar.gz` | ARM64 / AArch64 | Extract, then run `./PatchDiff` |
+
+#### AppImage
+
+Download the AppImage for your architecture, then:
+
+```bash
+chmod +x PatchDiff-linux-x64.AppImage
+./PatchDiff-linux-x64.AppImage
+```
+
+For ARM64, use `PatchDiff-linux-arm64.AppImage` instead. AppImages are self-contained and do not require a .NET runtime. If your distribution does not support AppImage out of the box, install FUSE 2 (Ubuntu/Debian: `sudo apt install libfuse2`).
+
+#### Tarball
+
+Extract the matching `PatchDiff-linux-x64.tar.gz` or `PatchDiff-linux-arm64.tar.gz` into a user-writable directory. The archive contains the GUI (`PatchDiff`) and CLI (`patchdiff-cli`):
+
+```bash
+tar -xzf PatchDiff-linux-x64.tar.gz -C ~/Applications/PatchDiff
+cd ~/Applications/PatchDiff
+chmod +x PatchDiff patchdiff-cli
+./PatchDiff                 # GUI
+./patchdiff-cli version     # CLI
+```
+
+The GUI uses Avalonia and supports X11/Wayland. The self-contained binaries need no .NET runtime. On Debian/Ubuntu, install these shared libraries if they are not already present:
+
+```bash
+sudo apt install libx11-6 libice6 libsm6 libfontconfig1
+```
+
+### Build from source
+
+Requires [git](https://git-scm.com) and the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). The desktop app is Avalonia-based (`src/PatchDiff.AppA`) and the instructions below work on Windows and Linux alike.
+
+```bash
+git clone https://github.com/Tester12-SR-24/PatchDiff.git
+cd PatchDiff
+git checkout main
+dotnet build
+```
+
+This builds the solution — Core library, CLI and desktop app:
+
+```bash
+# run the CLI
+dotnet run --project src/PatchDiff.Cli -- compare a.dll b.dll
+
+# run the GUI
+dotnet run --project src/PatchDiff.AppA
+```
 
 <details>
-<summary><b>🔎 Data layout</b></summary>
+<summary><b>📦 Self-contained single-file builds</b></summary>
+
+```bash
+# CLI — runs on any x64 machine, no .NET install required
+dotnet publish src/PatchDiff.Cli -c Release -r win-x64 --self-contained true \
+  /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true \
+  -o publish/cli
+
+# GUI app (use linux-x64 / linux-arm64 for Linux)
+dotnet publish src/PatchDiff.AppA -c Release -r win-x64 --self-contained true \
+  /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true \
+  -o publish/app
+```
+
+Zip `publish/cli` as `patchdiff-win-x64.zip` and `publish/app` as
+`PatchDiff-app-win-x64.zip` to create the Windows distributable package.
+
+</details>
+
+## 🗃 Data & privacy
+
+PatchDiff is local-first: your game DLLs, baselines and reports never leave the machine.
 
 ```text
 %LOCALAPPDATA%\PatchDiff
@@ -271,13 +255,11 @@ changes live in History/Revisions, where they can be diffed against each other a
 ├── Revisions            manifest per revision (SHA, version, timestamp, types)
 ├── Archive              original DLL bytes per revision
 ├── Logs                 crash + updater logs
-└── SettingsFile.json    settings (poll interval, start-minimized, retention…)
+└── SettingsFile.json    settings (poll interval, revision retention…)
 ```
 
 Set the `PATCHDIFF_DATA_DIR` environment variable to redirect the entire data root anywhere
 else — useful for portable installs or running isolated instances side by side.
-
-</details>
 
 ## 📝 Technical notes
 
@@ -286,7 +268,10 @@ else — useful for portable installs or running isolated instances side by side
 - References resolve from the DLL's own folder first (Unity's Managed folder ships its own
   BCL), falling back to the .NET Framework 4.x directories.
 - Only top-level types are tracked individually; nested types ride along in their parent.
-- The Windows desktop app uses WPF; Linux builds use Avalonia. Linux packages are available for x64 and ARM64. There are no macOS builds.
+- The desktop app uses Avalonia on Windows and Linux. Linux packages are available for x64
+  and ARM64. There are no macOS builds.
+- A stale watch pointing into a removed folder never blocks startup — the watcher is dropped
+  with a log line and polling takes over until the file returns.
 
 ## 🔥 Power hacks
 
@@ -305,13 +290,20 @@ Things the tool does that aren't obvious from the UI:
 - **Feed the HTML report into anything** — the report is a single self-contained `.html`
   file with no external dependencies. Open it in a browser, email it, drop it in a Discord
   channel, or script against it.
-- **Restore a previous build to A/B test** — History ▸ Restore puts the old DLL bytes back
-  on disk. If a patch broke something, you can roll back and check without reinstalling.
-- **Grep the decompiled sources** — Sources ▸ Export writes every decompiled type as a
-  separate `.cs` file. That's a full-text-searchable codebase of whatever the game ships.
+- **Restore a previous build to A/B test** — History lets you save any archived revision's
+  DLL bytes back to disk. If a patch broke something, you can roll back and check without
+  reinstalling.
+- **Grep the decompiled sources** — Browse ▸ export writes any decompiled type as a `.cs`
+  file; export the types you care about and you have a full-text-searchable codebase of
+  whatever the game ships.
 
 ## 🧰 Building blocks
 
 - [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) — C# decompilation engine
 - [DiffPlex](https://github.com/mmanela/diffplex) — line-level diffing
-- WPF (.NET 8) for the desktop app, hand-rolled CLI argument parsing
+- Avalonia (.NET 8) for the desktop app, hand-rolled CLI argument parsing
+
+## ⚖️ License
+
+[WTFPL v2](https://en.wikipedia.org/wiki/WTFPL) — Do What the Fuck You Want to Public License.
+See [LICENSE](LICENSE).

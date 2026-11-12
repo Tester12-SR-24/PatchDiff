@@ -49,6 +49,28 @@ public sealed class DiffService
         return result;
     }
 
+    /// <summary>
+    /// Line-level totals for a whole diff (added / removed / modified lines).
+    /// Single source of truth for every place that shows change counts, so the diff
+    /// header, the per-type pills and the Overview cards can never disagree.
+    /// </summary>
+    public static (int Added, int Removed, int Modified) LineDeltas(AssemblyDiffResult diff)
+    {
+        int added = 0, removed = 0, modified = 0;
+        foreach (var td in diff.TypeDiffs)
+        {
+            foreach (var r in SideBySide(td))
+            {
+                var ot = r.Old?.Type.ToString();
+                var nt = r.New?.Type.ToString();
+                if (ot == "Deleted") removed++;
+                if (nt == "Inserted") added++;
+                if (ot == "Modified" || nt == "Modified") modified++;
+            }
+        }
+        return (added, removed, modified);
+    }
+
     public static List<DiffRow> SideBySide(TypeDiff td)
     {
         var model = Builder.BuildDiffModel(

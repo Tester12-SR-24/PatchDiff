@@ -5,9 +5,18 @@ namespace PatchDiff.Views;
 
 public partial class SourcePane : UserControl
 {
+    /// <summary>
+    /// For runtime-XAML support only — normal usage goes through the parameterized
+    /// constructor; the source pane is not usable without source text.
+    /// </summary>
+    public SourcePane()
+    {
+        InitializeComponent();
+    }
+
     public SourcePane(string typeName, string source, string assemblyName)
     {
-        Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(this);
+        InitializeComponent();
         TypeNameText.Text = typeName;
         MetaText.Text = assemblyName;
         SourceText.Text = source;

@@ -23,22 +23,36 @@ public partial class HistoryView : UserControl
         public string Sub => TypeLabel;
     }
 
-    readonly WatchedDll _watch;
+    // Assigned only when the view is constructed via the parameterized constructor;
+    // the parameterless constructor exists for runtime-XAML support only.
+    readonly WatchedDll _watch = null!;
 
     public event Action<AssemblyDiffResult>? DiffRequested;
 
+    /// <summary>
+    /// For runtime-XAML support only — normal usage goes through the parameterized
+    /// constructor; the history view is not usable without a watch.
+    /// </summary>
+    public HistoryView()
+    {
+        InitializeComponent();
+    }
+
     public HistoryView(WatchedDll watch)
     {
-        Avalonia.Markup.Xaml.AvaloniaXamlLoader.Load(this);
+        InitializeComponent();
         _watch = watch;
         TitleText.Text = $"Revision history — {watch.Name}";
         var revs = new RevisionStore().List(watch.Path);
-        MetaText.Text = revs.Count == 0
-            ? "No revisions archived yet."
-            : $"{revs.Count} revision{(revs.Count == 1 ? "" : "s")} archived (every analyzed version is kept).";
-        RevisionList.ItemsSource = revs.OrderByDescending(r => r.CapturedUtc)
+        var rows = revs.OrderByDescending(r => r.CapturedUtc)
             .Select(r => new RevRow { Info = r, DllPath = watch.Path })
             .ToList();
+        MetaText.Text = rows.Count == 0
+            ? "No revisions archived yet."
+            : $"{rows.Count} revision{(rows.Count == 1 ? "" : "s")} archived (every analyzed version is kept).";
+        EmptyState.IsVisible = rows.Count == 0;
+        RevisionList.IsVisible = rows.Count > 0;
+        RevisionList.ItemsSource = rows;
     }
 
     async Task Compare(RevRow? row, bool againstCurrent)
@@ -98,19 +112,19 @@ public partial class HistoryView : UserControl
 
     async void OnDiffPrev(object? sender, RoutedEventArgs e)
     {
-        if (RevisionList.SelectedItem is not RevRow row) return;
+        if ((sender as Avalonia.Controls.Control)?.DataContext is not RevRow row) return;
         await Compare(row, againstCurrent: false);
     }
 
     async void OnDiffCurrent(object? sender, RoutedEventArgs e)
     {
-        if (RevisionList.SelectedItem is not RevRow row) return;
+        if ((sender as Avalonia.Controls.Control)?.DataContext is not RevRow row) return;
         await Compare(row, againstCurrent: true);
     }
 
     async void OnRestore(object? sender, RoutedEventArgs e)
     {
-        if (RevisionList.SelectedItem is not RevRow row) return;
+        if ((sender as Avalonia.Controls.Control)?.DataContext is not RevRow row) return;
         try
         {
             var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
@@ -124,11 +138,12 @@ public partial class HistoryView : UserControl
             if (file is null) return;
             var store = new RevisionStore();
             var restored = store.Restore(_watch.Path, row.Info.Sha256, file.Path.LocalPath);
-            Process.Start(new ProcessStartInfo(Path.GetDirectoryName(restored)!) { UseShellExecute = true });
+            ShellOpen.Open(TopLevel.GetTopLevel(this) as Avalonia.Controls.Window, Path.GetDirectoryName(restored)!);
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Restore failed: {ex.Message}");
         }
     }
+
 }

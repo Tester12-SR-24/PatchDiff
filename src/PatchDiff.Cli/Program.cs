@@ -36,19 +36,54 @@ internal static class PatchDiffCli
 
     static async Task<int> CompareAsync(string[] rest)
     {
+        if (rest.Any(a => a is "-h" or "--help"))
+            return Help("compare");
+
         string? output = null, old = null, current = null;
         for (int i = 0; i < rest.Length; i++)
         {
-            if (rest[i] is "-o" or "--out" && i + 1 < rest.Length)
+            var arg = rest[i];
+            if (arg is "-o" or "--out")
+            {
+                if (i + 1 >= rest.Length)
+                {
+                    Error($"option '{arg}' requires a value (report file path)");
+                    return 1;
+                }
                 output = rest[++i];
+            }
+            else if (arg.StartsWith('-'))
+            {
+                Error($"unknown option '{arg}' — usage: patchdiff compare <old.dll> <new.dll> [-o report.html]");
+                return 1;
+            }
             else if (old is null)
-                old = rest[i];
+            {
+                old = arg;
+            }
+            else if (current is null)
+            {
+                current = arg;
+            }
             else
-                current = rest[i];
+            {
+                Error($"unexpected argument '{arg}' — usage: patchdiff compare <old.dll> <new.dll> [-o report.html]");
+                return 1;
+            }
         }
         if (old is null || current is null)
         {
             Error("usage: patchdiff compare <old.dll> <new.dll> [-o report.html]");
+            return 1;
+        }
+        if (!File.Exists(old))
+        {
+            Error($"file not found: {old}");
+            return 1;
+        }
+        if (!File.Exists(current))
+        {
+            Error($"file not found: {current}");
             return 1;
         }
 
@@ -87,16 +122,37 @@ internal static class PatchDiffCli
 
     static async Task<int> WatchAsync(string[] rest)
     {
+        if (rest.Any(a => a is "-h" or "--help"))
+            return Help("watch");
+
         double pollSeconds = 10;
         var paths = new List<string>();
         for (int i = 0; i < rest.Length; i++)
         {
-            if (rest[i] is "--poll" && i + 1 < rest.Length && double.TryParse(rest[++i], out var p))
+            var arg = rest[i];
+            if (arg == "--poll")
+            {
+                if (i + 1 >= rest.Length)
+                {
+                    Error("option '--poll' requires a value (seconds)");
+                    return 1;
+                }
+                if (!double.TryParse(rest[++i], out var p) || p <= 0)
+                {
+                    Error($"'--poll' expects a positive number of seconds, got '{rest[i]}'");
+                    return 1;
+                }
                 pollSeconds = p;
-            else if (rest[i] is "-h" or "--help")
-                return Help("watch");
+            }
+            else if (arg.StartsWith('-'))
+            {
+                Error($"unknown option '{arg}' — usage: patchdiff watch [--poll seconds] <dll...>");
+                return 1;
+            }
             else
-                paths.Add(rest[i]);
+            {
+                paths.Add(arg);
+            }
         }
         if (paths.Count == 0)
         {
@@ -117,6 +173,7 @@ internal static class PatchDiffCli
             if (!File.Exists(path))
             {
                 Error($"File not found: {path}");
+                mgr.Dispose();
                 return 1;
             }
             mgr.Add(path);
@@ -134,19 +191,33 @@ internal static class PatchDiffCli
 
     static int History(string[] rest)
     {
+        if (rest.Length == 1 && rest[0] is "-h" or "--help")
+            return Help("history");
         if (rest.Length == 0)
         {
             Error("usage: patchdiff history <watched.dll>");
             return 1;
         }
+        if (rest.Length > 1)
+        {
+            Error($"unexpected argument '{rest[1]}' — usage: patchdiff history <watched.dll>");
+            return 1;
+        }
+        var dllPath = rest[0];
+        if (!File.Exists(dllPath))
+        {
+            Error($"file not found: {dllPath}");
+            return 1;
+        }
+
         var store = new RevisionStore();
-        var revs = store.List(rest[0]);
+        var revs = store.List(dllPath);
         if (revs.Count == 0)
         {
             Console.WriteLine("No revisions recorded for this DLL.");
             return 0;
         }
-        Console.WriteLine($"Revisions of {Path.GetFileName(rest[0])} (oldest → newest):");
+        Console.WriteLine($"Revisions of {Path.GetFileName(dllPath)} (oldest → newest):");
         foreach (var r in revs)
             Console.WriteLine($"  {r.Sha256[..12]}…  v{r.AssemblyVersion}  {r.CapturedUtc.ToLocalTime():yyyy-MM-dd HH:mm}  {r.TypeCount} types");
         return 0;
@@ -187,18 +258,51 @@ internal static class PatchDiffCli
 
     static int Help(string? cmd = null)
     {
+        switch (cmd)
+        {
+            case "compare":
+                Console.WriteLine("""
+usage:
+  patchdiff compare <old.dll> <new.dll> [-o report.html]
+
+Decompiles both assemblies and writes a side-by-side HTML report
+(and prints a summary). Without -o, the report is written to the
+reports directory and its path is printed.
+""");
+                return 0;
+            case "watch":
+                Console.WriteLine("""
+usage:
+  patchdiff watch [--poll seconds] <dll...>
+
+Watches DLLs for changes; on each update the DLL is re-decompiled
+and diffed against the baseline snapshot. Press Ctrl+C to stop.
+""");
+                return 0;
+            case "history":
+                Console.WriteLine("""
+usage:
+  patchdiff history <watched.dll>
+
+Lists archived revisions of a watched DLL.
+""");
+                return 0;
+        }
+
         Console.WriteLine("""
 PatchDiff — decompile, snapshot and diff .NET/Unity DLLs
 
 usage:
   patchdiff compare <old.dll> <new.dll> [-o report.html]   one-shot diff of two assemblies
   patchdiff watch [--poll seconds] <dll...>                watch DLLs, auto-diff on update
-  patchdiff history <watched.dll>                            list archived revisions
+  patchdiff history <watched.dll>                          list archived revisions
   patchdiff version
 
-Watch keeps a baseline snapshot in %LOCALAPPDATA%\PatchDiff\Snapshots; whenever a DLL
-changes on disk (e.g. a Unity game patch), it re-decompiles, diffs against the baseline,
-updates the snapshot and writes an HTML report to %LOCALAPPDATA%\PatchDiff\Reports.
+Watch keeps a baseline snapshot under the PatchDiff data folder; whenever a DLL changes
+on disk (e.g. a Unity game patch), it re-decompiles, diffs against the baseline, updates
+the snapshot and writes an HTML report to the same folder's Reports subdirectory.
+The data folder is PATCHDIFF_DATA_DIR when set, otherwise the per-user default
+(%LOCALAPPDATA%\PatchDiff on Windows, ~/.local/share/PatchDiff on Linux).
 """);
         return 0;
     }

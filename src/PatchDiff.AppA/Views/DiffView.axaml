@@ -3,94 +3,142 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:PatchDiff"
              xmlns:views="using:PatchDiff.Views"
-             Background="#1e1e22">
+             Background="#0e1219">
   <UserControl.Resources>
     <local:KindToBrushConverter x:Key="OldBrush" />
     <local:KindToNewBrushConverter x:Key="NewBrush" />
+    <local:KindToTextBrushConverter x:Key="RowText" />
+    <local:SectionKindToBrushConverter x:Key="KindAccent" />
     <local:NotEmptyToBoolConverter x:Key="NotEmpty" />
-    <local:NotEmptyToBoolConverter x:Key="Not" />
 
-    <!-- Row template: one line = one paired old/new line. -->
-    <DataTemplate x:Key="RowTemplate" DataType="views:DiffRowVm">
-      <Grid ColumnDefinitions="34,*,34,*" Margin="0,0,0,0">
-        <TextBlock Grid.Column="0" Text="{Binding OldNo}" FontFamily="Consolas" FontSize="11"
-                   Foreground="#54545e" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
-        <Border Grid.Column="1" Background="{Binding OldKind, Converter={StaticResource OldBrush}}"
-                Padding="6,0" MinHeight="19" VerticalAlignment="Stretch" MinWidth="{Binding MinWidth}">
-          <TextBlock Text="{Binding OldText}" FontFamily="Consolas" FontSize="11.5"
-                     Foreground="#cdd3de" VerticalAlignment="Center" />
-        </Border>
-        <TextBlock Grid.Column="2" Text="{Binding NewNo}" FontFamily="Consolas" FontSize="11"
-                   Foreground="#54545e" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
-        <Border Grid.Column="3" Background="{Binding NewKind, Converter={StaticResource NewBrush}}"
-                Padding="6,0" MinHeight="19" VerticalAlignment="Stretch" MinWidth="{Binding MinWidth}">
-          <TextBlock Text="{Binding NewText}" FontFamily="Consolas" FontSize="11.5"
-                     Foreground="#cdd3de" VerticalAlignment="Center" />
+    <!-- Per-side line template. Each side lives in its own ScrollViewer with its
+         own horizontal scrollbar (vertical scrolling stays unified at the tab
+         level), so a long line on one side no longer stretches or misaligns the
+         other side. Rows are content-sized with NoWrap text (star columns collapse
+         inside an infinitely-wide ScrollViewer), and row heights stay fixed so
+         both panes keep line-for-line alignment. -->
+    <DataTemplate x:Key="OldRowTemplate" DataType="views:LineVm">
+      <Grid ColumnDefinitions="40,Auto">
+        <TextBlock Text="{Binding No}" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="12"
+                   Foreground="#4d5666" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <Border Grid.Column="1" Background="{Binding Kind, Converter={StaticResource OldBrush}}"
+                Padding="8,0" MinHeight="22" VerticalAlignment="Stretch">
+          <TextBlock Text="{Binding Text}" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="12.5"
+                     Foreground="{Binding Kind, Converter={StaticResource RowText}}" VerticalAlignment="Center"
+                     TextWrapping="NoWrap" />
         </Border>
       </Grid>
     </DataTemplate>
 
-    <!-- Section header: badge pills + name + chevron. -->
+    <DataTemplate x:Key="NewRowTemplate" DataType="views:LineVm">
+      <Grid ColumnDefinitions="40,Auto">
+        <TextBlock Text="{Binding No}" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="12"
+                   Foreground="#4d5666" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <Border Grid.Column="1" Background="{Binding Kind, Converter={StaticResource NewBrush}}"
+                Padding="8,0" MinHeight="22" VerticalAlignment="Stretch">
+          <TextBlock Text="{Binding Text}" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="12.5"
+                     Foreground="{Binding Kind, Converter={StaticResource RowText}}" VerticalAlignment="Center"
+                     TextWrapping="NoWrap" />
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Section header: accent stripe (change kind) + chevron + kind chip + name + count pills.
+         Badges sit right after the name so they are always visible. -->
     <DataTemplate x:Key="SectionTemplate" DataType="views:SectionVm">
       <StackPanel Spacing="0">
-        <Button Classes="DiffSection" Click="OnToggleSection" Padding="0" MinHeight="30">
-          <Border Background="#26262b" Padding="10,5">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*">
-              <TextBlock Text="{Binding ChevronText}" Foreground="#8a8a95" FontFamily="Consolas" FontSize="12" Margin="0,0,8,0" />
-              <TextBlock Grid.Column="1" Text="{Binding AddBadge}" FontSize="10.5" FontWeight="SemiBold"
-                         Foreground="#8fe0a0" Background="#1e3a2a" Padding="6,1" Margin="0,0,6,0"
-                         VerticalAlignment="Center"
-                         IsVisible="{Binding AddBadge, Converter={StaticResource NotEmpty}}" />
-              <TextBlock Grid.Column="2" Text="{Binding DelBadge}" FontSize="10.5" FontWeight="SemiBold"
-                         Foreground="#ffb0b0" Background="#3a1e1e" Padding="6,1" Margin="0,0,6,0"
-                         VerticalAlignment="Center"
-                         IsVisible="{Binding DelBadge, Converter={StaticResource NotEmpty}}" />
-              <TextBlock Grid.Column="3" Text="{Binding ModBadge}" FontSize="10.5" FontWeight="SemiBold"
-                         Foreground="#ffe0a0" Background="#3a2f1e" Padding="6,1" Margin="0,0,6,0"
-                         VerticalAlignment="Center"
-                         IsVisible="{Binding ModBadge, Converter={StaticResource NotEmpty}}" />
-              <TextBlock Grid.Column="4" Text="{Binding FullName}" FontFamily="Consolas" FontSize="11.5"
+        <Button Classes="DiffSection" Click="OnToggleSection" Padding="0" MinHeight="36">
+          <Border Background="#141a24" Padding="0">
+            <Grid ColumnDefinitions="4,Auto,Auto,Auto,*,Auto,12">
+              <Border Grid.RowSpan="2" Background="{Binding Kind, Converter={StaticResource KindAccent}}" />
+              <TextBlock Grid.Column="1" Text="{Binding ChevronText}" Foreground="#8a95a5" FontFamily="Consolas, DejaVu Sans Mono, monospace"
+                         FontSize="13" Margin="10,0,8,0" VerticalAlignment="Center" />
+              <Border Grid.Column="2" CornerRadius="4" Padding="6,2" Background="#1d2531" Margin="0,0,9,0"
+                      VerticalAlignment="Center" IsVisible="{Binding KindChip, Converter={StaticResource NotEmpty}}">
+                <TextBlock Text="{Binding KindChip}" FontSize="9" FontWeight="Bold" Foreground="#93a1b5" />
+              </Border>
+              <TextBlock Grid.Column="3" Text="{Binding FullName}" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="12.5"
                          Foreground="#7fb2e8" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="10,0,0,0">
+                <Border CornerRadius="8" Padding="7,2" Background="#1e3a2a" IsVisible="{Binding AddBadge, Converter={StaticResource NotEmpty}}">
+                  <TextBlock Text="{Binding AddBadge}" FontSize="11" FontWeight="Bold" Foreground="#8fe0a0" />
+                </Border>
+                <Border CornerRadius="8" Padding="7,2" Background="#3a1e1e" IsVisible="{Binding DelBadge, Converter={StaticResource NotEmpty}}">
+                  <TextBlock Text="{Binding DelBadge}" FontSize="11" FontWeight="Bold" Foreground="#ffb0b0" />
+                </Border>
+                <Border CornerRadius="8" Padding="7,2" Background="#3a2f1e" IsVisible="{Binding ModBadge, Converter={StaticResource NotEmpty}}">
+                  <TextBlock Text="{Binding ModBadge}" FontSize="11" FontWeight="Bold" Foreground="#ffe0a0" />
+                </Border>
+              </StackPanel>
             </Grid>
           </Border>
         </Button>
-        <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource RowTemplate}"
-                      IsVisible="{Binding IsExpanded}" />
+        <!-- Expanded: PREV pane | divider | NOW pane, each with its own horizontal scrollbar. -->
+        <Grid ColumnDefinitions="*,6,*" IsVisible="{Binding IsExpanded}" Background="#0f141d">
+          <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding OldRows}" ItemTemplate="{StaticResource OldRowTemplate}" />
+          </ScrollViewer>
+          <Border Grid.Column="1" Background="#283142" />
+          <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding NewRows}" ItemTemplate="{StaticResource NewRowTemplate}" />
+          </ScrollViewer>
+        </Grid>
       </StackPanel>
     </DataTemplate>
   </UserControl.Resources>
 
   <DockPanel>
-    <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="12,8">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
-          <Button Content="Expand all" Click="OnExpandAll" Padding="8,3" FontSize="11" />
-          <Button Content="Collapse all" Click="OnCollapseAll" Padding="8,3" FontSize="11" />
+    <!-- Header: title, delta chips, baseline→current, expand/collapse. -->
+    <Border DockPanel.Dock="Top" Background="#10161f" BorderBrush="#283142" BorderThickness="0,0,0,1" Padding="16,10">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="7" ClipToBounds="True">
+        <StackPanel Spacing="4" ClipToBounds="True" Margin="0,0,10,0">
+          <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="16" Foreground="#e8edf5"
+                     TextTrimming="CharacterEllipsis" />
+          <StackPanel x:Name="MetaPanel" Orientation="Horizontal" Spacing="6" />
+          <!-- Baseline → current on its own row so it can never render underneath the buttons. -->
+          <TextBlock x:Name="HashText" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="11"
+                     Foreground="#748197" TextTrimming="CharacterEllipsis" />
         </StackPanel>
-        <StackPanel>
-          <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="13" />
-          <TextBlock x:Name="MetaText" FontSize="10.5" Foreground="#9a9aa9" Margin="0,2,0,0" />
-        </StackPanel>
-      </DockPanel>
+        <Button Grid.Column="1" x:Name="SaveHistoryButton" Classes="toolbar" Click="OnSaveToHistory"
+                IsVisible="False" Content="Save to History" />
+        <Button Grid.Column="2" Classes="toolbar" Click="OnExpandAll">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="▾" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="11" VerticalAlignment="Center" />
+            <TextBlock Text="Expand all" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="3" Classes="toolbar" Click="OnCollapseAll">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="▸" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="11" VerticalAlignment="Center" />
+            <TextBlock Text="Collapse all" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </Grid>
     </Border>
 
-    <Border DockPanel.Dock="Top" Background="#26262b" BorderBrush="#33333a" BorderThickness="0,0,0,1" Padding="10,6">
+    <!-- Filter bar -->
+    <Border DockPanel.Dock="Top" Background="#10161f" BorderBrush="#283142" BorderThickness="0,0,0,1" Padding="16,8">
       <TextBox x:Name="FilterBox" Watermark="Filter types…" TextChanged="OnFilter"
-               Background="#1b1b1f" BorderThickness="0" Padding="6,4" FontSize="11" />
+               Height="38" Padding="12,7" FontSize="13"
+               Background="#0f141d" BorderBrush="#30394a" />
     </Border>
 
-    <Grid ColumnDefinitions="16,*,16,28">
-      <TextBlock Grid.Column="0" Text="PREV" FontSize="10" Foreground="#8a8a95" Margin="0,6,0,0"
-                 HorizontalAlignment="Center" VerticalAlignment="Top" />
-      <TextBlock Grid.Column="2" Text="NOW" FontSize="10" Foreground="#8a8a95" Margin="0,6,0,0"
-                 HorizontalAlignment="Center" VerticalAlignment="Top" />
+    <!-- Column labels, aligned with the two panes -->
+    <Border DockPanel.Dock="Top" Background="#0c1017" BorderBrush="#283142" BorderThickness="0,0,0,1" Padding="0,5">
+      <Grid ColumnDefinitions="*,6,*">
+        <Border Grid.Column="0" HorizontalAlignment="Center" CornerRadius="4" Padding="6,2" Background="#1d2531">
+          <TextBlock Text="PREV" FontSize="10" FontWeight="Bold" Foreground="#e09a9f" />
+        </Border>
+        <Border Grid.Column="2" HorizontalAlignment="Center" CornerRadius="4" Padding="6,2" Background="#1d2531">
+          <TextBlock Text="NOW" FontSize="10" FontWeight="Bold" Foreground="#8fe0c8" />
+        </Border>
+      </Grid>
+    </Border>
 
-      <ListBox x:Name="DiffList" Grid.Column="1" Grid.ColumnSpan="3"
-               Background="#1b1b1f" BorderThickness="0" Padding="0"
-               ItemTemplate="{StaticResource SectionTemplate}"
-               SelectionMode="Single"
-               ScrollViewer.HorizontalScrollBarVisibility="Auto"
-               ScrollViewer.VerticalScrollBarVisibility="Visible" />
-    </Grid>
+    <ListBox x:Name="DiffList" Background="#0f141d" BorderThickness="0" Padding="0"
+             ItemTemplate="{StaticResource SectionTemplate}"
+             SelectionMode="Single"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+             ScrollViewer.VerticalScrollBarVisibility="Visible" />
   </DockPanel>
 </UserControl>

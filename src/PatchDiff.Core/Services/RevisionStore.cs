@@ -18,6 +18,37 @@ public sealed class RevisionStore
     static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
     static string IndexFile(string dllPath) => Path.Combine(RootFor(dllPath), "index.json");
+    static string LockFile(string dllPath) => Path.Combine(RootFor(dllPath), "index.lock");
+
+    /// <summary>
+    /// Cross-process lock around the index.json read-modify-write. The GUI and the CLI
+    /// can watch the same assembly against one data folder; without this, a concurrent
+    /// Append from one process can silently drop the revision recorded by the other.
+    /// Uses a sibling .lock file opened with FileShare.None (portable, no named mutex).
+    /// </summary>
+    static IDisposable AcquireIndexLock(string dllPath, int timeoutMs = 5000)
+    {
+        var lockPath = LockFile(dllPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(lockPath)!);
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None,
+                    bufferSize: 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException) when (Environment.TickCount64 < deadline)
+            {
+                Thread.Sleep(40); // another process holds the index — wait and retry
+            }
+            catch
+            {
+                // Locking is best-effort: never fail an archive because a stale lock exists.
+                return Stream.Null;
+            }
+        }
+    }
 
     public List<RevisionInfo> List(string dllPath)
     {
@@ -26,7 +57,18 @@ public sealed class RevisionStore
             var file = IndexFile(dllPath);
             if (!File.Exists(file))
                 return new List<RevisionInfo>();
-            return JsonSerializer.Deserialize<List<RevisionInfo>>(File.ReadAllText(file)) ?? new List<RevisionInfo>();
+            // Retry reads that collide with a concurrent writer instead of returning empty
+            // (an empty list would make the caller believe no history exists).
+            for (var attempt = 0; attempt < 12; attempt++)
+            {
+                try
+                {
+                    return JsonSerializer.Deserialize<List<RevisionInfo>>(File.ReadAllText(file))
+                        ?? new List<RevisionInfo>();
+                }
+                catch (IOException) { Thread.Sleep(30); }
+            }
+            return new List<RevisionInfo>();
         }
         catch
         {
@@ -50,6 +92,8 @@ public sealed class RevisionStore
         if (!File.Exists(dllPath))
             File.WriteAllBytes(dllPath, dllBytes);
 
+        // Serialize the read-modify-write of index.json across processes (GUI + CLI).
+        using var indexLock = AcquireIndexLock(snapshot.AssemblyPath);
         var list = List(snapshot.AssemblyPath);
         list.RemoveAll(r => r.Sha256 == snapshot.Sha256); // re-analysis of same file: refresh entry
         list.Add(new RevisionInfo
