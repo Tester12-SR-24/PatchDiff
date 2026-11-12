@@ -310,6 +310,12 @@ jobs:
     needs: [build, appimage]
     runs-on: ubuntu-22.04
     steps:
+      # The archives include install.sh and the app icon from the repo.
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+
       - name: Download x64 build
         uses: actions/download-artifact@v7
         with:
