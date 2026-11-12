@@ -14,6 +14,9 @@
     <InformationalVersion>2.0.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- File icon shown in Explorer, the taskbar and shortcuts. Without this the
+         exe keeps the generic .NET icon even though the window sets its own. -->
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

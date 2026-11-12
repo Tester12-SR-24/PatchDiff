@@ -100,6 +100,16 @@
                   <TextBlock Text="Add a folder" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
+              <Button x:Name="UpdateButton" Classes="nav" Click="OnCheckForUpdates">
+                <StackPanel Orientation="Horizontal" Spacing="9">
+                  <Image Source="{StaticResource IconRefresh}" Width="16" Height="16" />
+                  <TextBlock x:Name="UpdateButtonText" Text="Check for updates" VerticalAlignment="Center" />
+                  <Border x:Name="UpdateBadge" IsVisible="False" CornerRadius="8" Padding="6,1"
+                          Background="#f0c674" VerticalAlignment="Center">
+                    <TextBlock Text="NEW" FontSize="9" FontWeight="Bold" Foreground="#1a1408" />
+                  </Border>
+                </StackPanel>
+              </Button>
               <Button Classes="nav" Click="OnSettings">
                 <StackPanel Orientation="Horizontal" Spacing="9">
                   <Image Source="{StaticResource IconSettings}" Width="16" Height="16" />

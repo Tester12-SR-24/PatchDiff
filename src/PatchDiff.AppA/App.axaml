@@ -77,6 +77,14 @@
       <Setter Property="Background" Value="#20353b" />
       <Setter Property="Foreground" Value="#68ded2" />
     </Style>
+    <!-- Highlighted while a newer release is known to exist. -->
+    <Style Selector="Button.nav.update">
+      <Setter Property="Background" Value="#2b2416" />
+      <Setter Property="Foreground" Value="#f0c674" />
+    </Style>
+    <Style Selector="Button.nav.update:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#3a301c" />
+    </Style>
     <Style Selector="Button.toolbar">
       <Setter Property="Padding" Value="10,6" />
       <Setter Property="FontSize" Value="11" />

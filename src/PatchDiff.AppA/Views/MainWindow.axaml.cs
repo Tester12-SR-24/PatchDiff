@@ -39,6 +39,8 @@ public partial class MainWindow : Window
     /// <summary>False until the constructor finished restoring persisted state.
     /// Guards SaveAll against the startup CollectionChanged storm wiping ui-state.json.</summary>
     bool _ready;
+    // Set when a newer release is known; the nav button highlights and installs it.
+    ReleaseInfo? _pendingUpdate;
 
     /// <summary>Set for a genuine exit — Closing uses it to distinguish exit from close-to-tray.</summary>
     bool _reallyExiting;
@@ -68,7 +70,10 @@ public partial class MainWindow : Window
         // InitTray() is handled via Avalonia TrayIcon in App.axaml.cs or platform services
         OpenOverviewTab();
         // SystemEvents.SessionEnding is Windows-specific; handle using Avalonia lifecycle events or P/Invoke if strictly needed.
-        StartHiddenToTray = _settings.StartMinimized;
+        // Sign-in launches start hidden in the tray; clicking the app icon (or any
+        // manual launch) always shows the window unless the user opted into always
+        // starting hidden.
+        StartHiddenToTray = Program.LaunchedAtLogin || _settings.StartMinimized;
         AutoStartItem.IsChecked = AutoStart.IsEnabled();
         AutoStartItem.IsVisible = AutoStart.IsSupported;
         CreateTrayIcon();
@@ -95,6 +100,10 @@ public partial class MainWindow : Window
         Closed += (_, _) => SaveAll();
         // Only now may watch-list changes persist — everything above must not touch ui-state.json.
         _ready = true;
+
+        // Quiet update check once the window is up: highlights the nav button when a
+        // newer release exists, and never interrupts startup.
+        Opened += (_, _) => Dispatcher.UIThread.Post(async () => await CheckForUpdatesQuietlyAsync());
     }
 
     void CreateTrayIcon()
@@ -299,7 +308,7 @@ public partial class MainWindow : Window
         var startInTrayCheck = new CheckBox
         {
             IsChecked = _settings.StartMinimized,
-            Content = new TextBlock { Text = "Start PatchDiff hidden in the system tray", FontSize = 12 },
+            Content = new TextBlock { Text = "Always start hidden in the system tray", FontSize = 12 },
         };
         var signInCheck = new CheckBox
         {
@@ -396,7 +405,7 @@ public partial class MainWindow : Window
         body.Children.Add(closeToTrayCheck);
         body.Children.Add(Description("When off, closing the window exits PatchDiff."));
         body.Children.Add(startInTrayCheck);
-        body.Children.Add(Description("Applies on next start: PatchDiff runs from the tray and the main window stays hidden until you open it from the tray icon."));
+        body.Children.Add(Description("Sign-in launches always start hidden in the tray. Opening PatchDiff from the desktop, Start menu or a terminal shows the window. Turn this on to also start hidden when you launch it yourself."));
         body.Children.Add(signInCheck);
         body.Children.Add(Description("Registers PatchDiff to run at sign-in (Windows registry or a Linux autostart entry)."));
 
@@ -1150,35 +1159,160 @@ public partial class MainWindow : Window
 
     async void OnCheckForUpdates(object sender, RoutedEventArgs e)
     {
+        // A known update installs immediately; otherwise check first and report.
+        if (_pendingUpdate is not null)
+        {
+            await InstallPendingUpdateAsync(_pendingUpdate);
+            return;
+        }
+
+        SetUpdateState(checking: true);
         AddLog("Checking for updates…");
-        var updater = new UpdaterService();
-        ReleaseInfo? release;
+        var release = await FetchLatestReleaseAsync();
+        if (release is null)
+        {
+            SetUpdateState(checking: false);
+            AddLog("Could not reach the releases feed (offline, private repo without credentials, or no releases yet).");
+            MessageBox.Show(this, "Could not reach the update feed.\n\nCheck your connection and try again.", "Check for updates");
+            return;
+        }
+
+        if (UpdaterService.IsNewerOrUnknown(release) == false)
+        {
+            SetUpdateState(checking: false);
+            AddLog($"Up to date — running {UpdaterService.CurrentVersion()} (latest release: {release.Tag}).");
+            MessageBox.Show(this, $"PatchDiff is up to date.\n\nRunning {UpdaterService.CurrentVersion()}, latest release {release.Tag}.", "Check for updates");
+            return;
+        }
+
+        MarkUpdateAvailable(release);
+        await InstallPendingUpdateAsync(release);
+    }
+
+    /// <summary>Latest release, or null when the feed is unreachable.</summary>
+    async Task<ReleaseInfo?> FetchLatestReleaseAsync()
+    {
         try
         {
-            release = await updater.GetLatestReleaseAsync().ConfigureAwait(true);
+            return await new UpdaterService().GetLatestReleaseAsync().ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             AddLog($"Update check failed: {ex.Message}");
-            return;
+            return null;
         }
-        if (release is null)
-        {
-            AddLog("Could not reach the releases feed (offline, private repo without credentials, or no releases yet).");
-            return;
-        }
+    }
 
-        var newer = UpdaterService.IsNewerOrUnknown(release);
-        if (newer == false)
+    /// <summary>Background check on startup: highlights the button, never interrupts.</summary>
+    async Task CheckForUpdatesQuietlyAsync()
+    {
+        var release = await FetchLatestReleaseAsync();
+        if (release is null)
+            return;
+        if (UpdaterService.IsNewerOrUnknown(release) == false)
         {
             AddLog($"Up to date — running {UpdaterService.CurrentVersion()} (latest release: {release.Tag}).");
             return;
         }
+        MarkUpdateAvailable(release);
+        AddLog($"Update available: {release.Tag} — use Check for updates to install it.");
+    }
 
-        AddLog($"Update available: {release.Tag}.");
+    void MarkUpdateAvailable(ReleaseInfo release)
+    {
+        _pendingUpdate = release;
+        UpdateButton.Classes.Add("update");
+        UpdateBadge.IsVisible = true;
+        UpdateButtonText.Text = $"Update to {release.Tag}";
+        ToolTip.SetTip(UpdateButton, $"PatchDiff {release.Tag} is available — click to install.");
+    }
+
+    void SetUpdateState(bool checking)
+    {
+        UpdateButton.IsEnabled = !checking;
+        if (checking)
+            UpdateButtonText.Text = "Checking…";
+        else if (_pendingUpdate is null)
+            UpdateButtonText.Text = "Check for updates";
+    }
+
+    /// <summary>Download the release installer and hand off to it, then exit.</summary>
+    async Task InstallPendingUpdateAsync(ReleaseInfo release)
+    {
         if (!OperatingSystem.IsWindows())
         {
-            AddLog("Automatic in-place updates are only available on Windows; opening the release page for a manual update.");
+            await InstallLinuxUpdateAsync(release);
+            return;
+        }
+
+        var updater = new UpdaterService();
+        SetUpdateState(checking: true);
+        AddLog($"Update available: {release.Tag} — downloading the installer…");
+
+        string? installer = null;
+        try
+        {
+            installer = await updater.DownloadInstallerAsync(release,
+                msg => Dispatcher.UIThread.Post(() => AddLog(msg))).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Update download failed: {ex.Message}");
+        }
+
+        if (installer is null)
+        {
+            // No installer asset (or the download failed): fall back to the portable
+            // zip swap so an update is still possible.
+            AddLog("Installer unavailable — falling back to the portable update package.");
+            string? staging = null;
+            try
+            {
+                staging = await updater.DownloadAndStageAsync(release,
+                    msg => Dispatcher.UIThread.Post(() => AddLog(msg))).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Update download failed: {ex.Message}");
+            }
+            if (staging is null)
+            {
+                SetUpdateState(checking: false);
+                AddLog("Update download failed — details in the updater log.");
+                MessageBox.Show(this, "The update could not be downloaded.\n\nDetails are in the updater log.", "Update failed");
+                return;
+            }
+            AddLog("Update staged — applying on exit…");
+            updater.LaunchApplyAfterExit(staging);
+            (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+            return;
+        }
+
+        AddLog("Installer downloaded — closing PatchDiff and installing…");
+        if (!UpdaterService.LaunchInstallerAfterExit(installer))
+        {
+            SetUpdateState(checking: false);
+            AddLog("Could not start the installer — details in the updater log.");
+            MessageBox.Show(this, "The installer could not be started.\n\nDetails are in the updater log.", "Update failed");
+            return;
+        }
+        (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+    }
+
+    /// <summary>
+    /// Linux update: download the release archive and run its install.sh into the
+    /// current install folder. AppImage runs are read-only mounts, so those fall back
+    /// to the release page.
+    /// </summary>
+    async Task InstallLinuxUpdateAsync(ReleaseInfo release)
+    {
+        var installDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        var isAppImage = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPIMAGE")) ||
+                         installDir.Contains("/.mount_", StringComparison.Ordinal) ||
+                         installDir.StartsWith("/tmp/", StringComparison.Ordinal);
+        if (isAppImage)
+        {
+            AddLog("Running from an AppImage — opening the release page so you can download the new AppImage.");
             try
             {
                 Process.Start(new ProcessStartInfo(release.PageUrl) { UseShellExecute = true });
@@ -1190,25 +1324,35 @@ public partial class MainWindow : Window
             return;
         }
 
-        string? staging;
+        var updater = new UpdaterService();
+        SetUpdateState(checking: true);
+        AddLog($"Update available: {release.Tag} — downloading the Linux package…");
+        string? archive = null;
         try
         {
-            staging = await updater.DownloadAndStageAsync(release,
+            archive = await updater.DownloadLinuxArchiveAsync(release,
                 msg => Dispatcher.UIThread.Post(() => AddLog(msg))).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             AddLog($"Update download failed: {ex.Message}");
-            return;
         }
-        if (staging is null)
+        if (archive is null)
         {
+            SetUpdateState(checking: false);
             AddLog("Update download failed — details in the updater log.");
+            MessageBox.Show(this, "The update could not be downloaded.\n\nDetails are in the updater log.", "Update failed");
             return;
         }
 
-        AddLog("Update staged — applying on exit…");
-        updater.LaunchApplyAfterExit(staging);
+        AddLog($"Installing into {installDir} and restarting…");
+        if (!UpdaterService.LaunchLinuxInstallerAfterExit(archive, installDir))
+        {
+            SetUpdateState(checking: false);
+            AddLog("Could not start the installer — details in the updater log.");
+            MessageBox.Show(this, "The installer could not be started.\n\nDetails are in the updater log.", "Update failed");
+            return;
+        }
         (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
     }
 

@@ -194,7 +194,7 @@ jobs:
 
       - name: Upload Windows release files
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: windows-release
           path: dist/*
@@ -210,7 +210,7 @@ jobs:
 
       - name: Upload Linux build archive
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: build-${{ matrix.rid }}
           path: build-${{ matrix.arch }}.tar.gz
@@ -237,7 +237,7 @@ jobs:
           ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
       - name: Download build archive
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: build-${{ matrix.rid }}
           path: build-archive
@@ -248,11 +248,15 @@ jobs:
           mkdir -p "publish/${{ matrix.rid }}"
           tar -xzf build-archive/build-${{ matrix.arch }}.tar.gz -C "publish/${{ matrix.rid }}"
           chmod +x "publish/${{ matrix.rid }}/app/PatchDiff" "publish/${{ matrix.rid }}/cli/patchdiff"
+          # Native assets (libSkiaSharp, libHarfBuzzSharp) come out of publish as 0744,
+          # which appimagetool rejects: other users could not read or execute them.
+          # a+rX adds read for everyone and execute only where it already exists.
+          chmod -R a+rX "publish/${{ matrix.rid }}"
 
       - name: Install AppImage tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq squashfs-tools
+          sudo apt-get install -y -qq squashfs-tools appstream
           # appimagetool runs on the x86-64 CI host; ARCH selects the target runtime.
           curl --fail --location --output appimagetool.AppImage \
             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
@@ -262,8 +266,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p AppDir/usr/lib/patchdiff AppDir/usr/bin AppDir/usr/share/applications
+          mkdir -p AppDir/usr/lib/patchdiff AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/metainfo
           cp -a "publish/${{ matrix.rid }}/app/." AppDir/usr/lib/patchdiff/
+          cp assets/patchdiff.appdata.xml AppDir/usr/share/metainfo/patchdiff.appdata.xml
           cat > AppDir/usr/bin/patchdiff <<'EOF'
           #!/bin/sh
           HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -295,7 +300,7 @@ jobs:
           chmod +x "PatchDiff-${{ matrix.rid }}.AppImage"
 
       - name: Upload AppImage
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: appimage-${{ matrix.rid }}
           path: "PatchDiff-${{ matrix.rid }}.AppImage"
@@ -307,25 +312,25 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Download x64 build
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: build-linux-x64
           path: input/build-linux-x64
 
       - name: Download ARM64 build
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: build-linux-arm64
           path: input/build-linux-arm64
 
       - name: Download x64 AppImage
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: appimage-linux-x64
           path: input/appimage-linux-x64
 
       - name: Download ARM64 AppImage
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: appimage-linux-arm64
           path: input/appimage-linux-arm64
@@ -345,19 +350,30 @@ jobs:
           cp input/extracted-arm64/cli/patchdiff PatchDiff/linux-arm64/patchdiff-cli
           cp input/appimage-linux-x64/PatchDiff-linux-x64.AppImage PatchDiff/linux-x64/
           cp input/appimage-linux-arm64/PatchDiff-linux-arm64.AppImage PatchDiff/linux-arm64/
+          # Linux installer: same job as the Windows setup exe — choose a folder,
+          # add a launcher and a desktop entry.
+          cp install.sh PatchDiff/linux-x64/install.sh
+          cp install.sh PatchDiff/linux-arm64/install.sh
+          cp src/PatchDiff.AppA/Assets/icon-512.png PatchDiff/linux-x64/patchdiff.png
+          cp src/PatchDiff.AppA/Assets/icon-512.png PatchDiff/linux-arm64/patchdiff.png
+          chmod 755 PatchDiff/linux-x64/install.sh PatchDiff/linux-arm64/install.sh
           chmod +x PatchDiff/linux-x64/PatchDiff PatchDiff/linux-x64/patchdiff-cli \
                    PatchDiff/linux-x64/PatchDiff-linux-x64.AppImage \
                    PatchDiff/linux-arm64/PatchDiff PatchDiff/linux-arm64/patchdiff-cli \
                    PatchDiff/linux-arm64/PatchDiff-linux-arm64.AppImage
+          # Keep the archives usable for every user, not just the one who built them.
+          chmod -R a+rX PatchDiff/linux-x64 PatchDiff/linux-arm64
           (cd PatchDiff/linux-x64 && tar -czf ../../PatchDiff-linux-x64.tar.gz .)
           (cd PatchDiff/linux-arm64 && tar -czf ../../PatchDiff-linux-arm64.tar.gz .)
           tar -tvzf PatchDiff-linux-x64.tar.gz | grep 'PatchDiff$'
           tar -tvzf PatchDiff-linux-x64.tar.gz | grep 'patchdiff-cli$'
+          tar -tvzf PatchDiff-linux-x64.tar.gz | grep 'install.sh$'
           tar -tvzf PatchDiff-linux-arm64.tar.gz | grep 'PatchDiff$'
           tar -tvzf PatchDiff-linux-arm64.tar.gz | grep 'patchdiff-cli$'
+          tar -tvzf PatchDiff-linux-arm64.tar.gz | grep 'install.sh$'
 
       - name: Upload release archives
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-archives
           path: |
@@ -376,25 +392,25 @@ jobs:
           ref: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
 
       - name: Download release archives
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: release-archives
           path: release-assets
 
       - name: Download x64 AppImage
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: appimage-linux-x64
           path: release-assets
 
       - name: Download ARM64 AppImage
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: appimage-linux-arm64
           path: release-assets
 
       - name: Download Windows release files
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: windows-release
           path: release-assets

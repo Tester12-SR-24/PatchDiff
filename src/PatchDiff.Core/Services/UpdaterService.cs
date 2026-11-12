@@ -4,12 +4,14 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace PatchDiff.Services;
 
-/// <summary>One GitHub release: tag, display name, page URL, download URL of the app asset.</summary>
-public sealed record ReleaseInfo(string Tag, string Name, string PageUrl, string AssetUrl, DateTime PublishedUtc);
+/// <summary>One GitHub release: tag, display name, page URL, download URL of the app asset,
+/// download URL of the Windows installer, download URL of the Linux archive, and publish time.</summary>
+public sealed record ReleaseInfo(string Tag, string Name, string PageUrl, string AssetUrl, string InstallerUrl, string LinuxUrl, DateTime PublishedUtc);
 
 /// <summary>
 /// Follows the repository's GitHub releases: check → download → stage → apply on exit.
@@ -32,6 +34,14 @@ public sealed class UpdaterService
     // compare below is case-insensitive, so only the spelling has to line up
     // with the asset name on the release.
     const string AppAssetName = "PatchDiff-app-win-x64.zip";
+    // The Windows installer published alongside it (dist/PatchDiff-setup-x.y.z.exe).
+    // Preferred over the zip: it installs to Program Files, keeps the chosen folder
+    // on upgrade, and elevates properly instead of writing into a protected path.
+    const string InstallerAssetPrefix = "PatchDiff-setup-";
+    // Linux ships a tar.gz with install.sh instead of an .exe installer.
+    static string LinuxAssetName => RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+        ? "PatchDiff-linux-arm64.tar.gz"
+        : "PatchDiff-linux-x64.tar.gz";
 
     readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
 
@@ -50,6 +60,8 @@ public sealed class UpdaterService
             if (tag.Length == 0)
                 return null;
             string? assetUrl = null;
+            string? installerUrl = null;
+            string? linuxUrl = null;
             if (root.TryGetProperty("assets", out var assets))
             {
                 foreach (var a in assets.EnumerateArray())
@@ -57,6 +69,11 @@ public sealed class UpdaterService
                     var aname = a.GetProperty("name").GetString() ?? "";
                     if (string.Equals(aname, AppAssetName, StringComparison.OrdinalIgnoreCase))
                         assetUrl = a.GetProperty("browser_download_url").GetString();
+                    else if (aname.StartsWith(InstallerAssetPrefix, StringComparison.OrdinalIgnoreCase) &&
+                             aname.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        installerUrl = a.GetProperty("browser_download_url").GetString();
+                    else if (string.Equals(aname, LinuxAssetName, StringComparison.OrdinalIgnoreCase))
+                        linuxUrl = a.GetProperty("browser_download_url").GetString();
                 }
             }
             DateTime.TryParse(root.GetProperty("published_at").GetString(), out var published);
@@ -65,6 +82,8 @@ public sealed class UpdaterService
                 root.GetProperty("name").GetString() ?? tag,
                 root.GetProperty("html_url").GetString() ?? $"https://github.com/{Repo}/releases",
                 assetUrl ?? "",
+                installerUrl ?? "",
+                linuxUrl ?? "",
                 published);
         }
         catch (OperationCanceledException) { throw; }
@@ -185,6 +204,206 @@ public sealed class UpdaterService
     public static string ApplyStatusFile
     {
         get { var dir = Path.Combine(SnapshotStore.DataRoot, "update"); Directory.CreateDirectory(dir); return Path.Combine(dir, "last-apply.txt"); }
+    }
+
+    /// <summary>
+    /// Download the release's Windows installer into the update folder and return its
+    /// path (or null on failure). The file is validated as a real PE image before it
+    /// is ever handed to the shell.
+    /// </summary>
+    public async Task<string?> DownloadInstallerAsync(ReleaseInfo release, Action<string>? progress = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(release.InstallerUrl))
+            return null;
+        try
+        {
+            var dir = Path.Combine(SnapshotStore.DataRoot, "update");
+            Directory.CreateDirectory(dir);
+            var fileName = $"PatchDiff-setup-{release.Tag.TrimStart('v', 'V')}.exe";
+            var target = Path.Combine(dir, fileName);
+            if (File.Exists(target))
+                File.Delete(target);
+
+            progress?.Invoke($"Downloading {fileName}…");
+            using var req = NewRequest(HttpMethod.Get, release.InstallerUrl);
+            req.Headers.Accept.ParseAdd("application/octet-stream");
+            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                return null;
+
+            await using (var src = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
+            await using (var dst = File.Create(target))
+            {
+                var buffer = new byte[1 << 16];
+                long total = resp.Content.Headers.ContentLength ?? -1, done = 0;
+                int read;
+                while ((read = await src.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+                {
+                    await dst.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                    done += read;
+                    if (total > 0)
+                        progress?.Invoke($"Downloading… {done * 100 / total}%");
+                }
+            }
+
+            if (!IsValidPeImage(target))
+            {
+                WriteUpdaterLog("installer validation",
+                    new InvalidDataException($"Downloaded installer is not a valid executable: {target}"));
+                try { File.Delete(target); } catch { }
+                return null;
+            }
+            return target;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            WriteUpdaterLog("installer download", ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Download the Linux release archive (tar.gz with install.sh) and return its path,
+    /// or null on failure.
+    /// </summary>
+    public async Task<string?> DownloadLinuxArchiveAsync(ReleaseInfo release, Action<string>? progress = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(release.LinuxUrl))
+            return null;
+        try
+        {
+            var dir = Path.Combine(SnapshotStore.DataRoot, "update");
+            Directory.CreateDirectory(dir);
+            var target = Path.Combine(dir, LinuxAssetName);
+            if (File.Exists(target))
+                File.Delete(target);
+
+            progress?.Invoke($"Downloading {LinuxAssetName}…");
+            using var req = NewRequest(HttpMethod.Get, release.LinuxUrl);
+            req.Headers.Accept.ParseAdd("application/octet-stream");
+            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                return null;
+
+            await using (var src = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
+            await using (var dst = File.Create(target))
+            {
+                var buffer = new byte[1 << 16];
+                long total = resp.Content.Headers.ContentLength ?? -1, done = 0;
+                int read;
+                while ((read = await src.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+                {
+                    await dst.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                    done += read;
+                    if (total > 0)
+                        progress?.Invoke($"Downloading… {done * 100 / total}%");
+                }
+            }
+
+            // A gzip stream starts with 1f 8b; anything else is a failed download.
+            using (var fs = File.OpenRead(target))
+            {
+                var magic = new byte[2];
+                if (fs.Read(magic, 0, 2) != 2 || magic[0] != 0x1f || magic[1] != 0x8b)
+                {
+                    WriteUpdaterLog("linux archive validation",
+                        new InvalidDataException($"Downloaded archive is not a gzip file: {target}"));
+                    try { File.Delete(target); } catch { }
+                    return null;
+                }
+            }
+            return target;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            WriteUpdaterLog("linux archive download", ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Install a downloaded Linux archive once this process exits: extract it, run its
+    /// install.sh into the current install folder, then relaunch the app.
+    /// </summary>
+    public static bool LaunchLinuxInstallerAfterExit(string archivePath, string installDir)
+    {
+        try
+        {
+            var pid = Environment.ProcessId;
+            var script = Path.Combine(Path.GetTempPath(), "patchdiff-linux-update.sh");
+            var work = Path.Combine(Path.GetTempPath(), "patchdiff-linux-update");
+            var appExe = Path.Combine(installDir, "PatchDiff");
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("#!/bin/sh");
+            sb.AppendLine("# PatchDiff update — waits for the running instance, installs, relaunches.");
+            sb.AppendLine("set -eu");
+            sb.AppendLine($"while kill -0 {pid} 2>/dev/null; do sleep 1; done");
+            sb.AppendLine($"rm -rf '{work}'");
+            sb.AppendLine($"mkdir -p '{work}'");
+            sb.AppendLine($"tar -xzf '{archivePath}' -C '{work}'");
+            sb.AppendLine($"sh '{work}/install.sh' --dir '{installDir}' --yes");
+            sb.AppendLine($"rm -rf '{work}' '{archivePath}'");
+            sb.AppendLine($"nohup '{appExe}' >/dev/null 2>&1 &");
+            sb.AppendLine("rm -f \"$0\"");
+            File.WriteAllText(script, sb.ToString());
+            File.SetUnixFileMode(script,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+
+            Process.Start(new ProcessStartInfo("/bin/sh", $"'{script}'")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            WriteUpdaterLog("linux installer launch", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Run the downloaded installer once this process has exited. The installer is
+    /// started silently with /CLOSEAPPLICATIONS so an upgrade never stops on a
+    /// "close the running app?" prompt, and it keeps the folder chosen previously.
+    /// </summary>
+    public static bool LaunchInstallerAfterExit(string installerPath)
+    {
+        try
+        {
+            if (!IsValidPeImage(installerPath))
+            {
+                WriteUpdaterLog("installer launch",
+                    new InvalidDataException($"Refusing to run a non-executable installer: {installerPath}"));
+                return false;
+            }
+
+            var pid = Environment.ProcessId;
+            var script = Path.Combine(Path.GetTempPath(), "patchdiff-install-update.cmd");
+            var cmd = new System.Text.StringBuilder();
+            cmd.AppendLine("@echo off");
+            cmd.AppendLine("rem PatchDiff update — waits for the running instance, then runs the installer.");
+            cmd.AppendLine(":wait");
+            cmd.AppendLine($"tasklist /FI \"PID eq {pid}\" | find \"{pid}\" >nul && (timeout /t 1 /nobreak >nul & goto wait)");
+            cmd.AppendLine($"start \"\" \"{installerPath}\" /SILENT /CLOSEAPPLICATIONS /NORESTART /SUPPRESSMSGBOXES");
+            cmd.AppendLine("del \"%~f0\"");
+            File.WriteAllText(script, cmd.ToString());
+
+            Process.Start(new ProcessStartInfo("cmd.exe", "/c \"" + script + "\"")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            WriteUpdaterLog("installer launch", ex);
+            return false;
+        }
     }
 
     /// <summary>

@@ -58,7 +58,7 @@ touching the game files themselves.
 | 🕘 | **History & restore** | Compare any revision against the previous one or the current baseline, and save an old build back to disk with one click. |
 | 📄 | **HTML reports** | Self-contained, start-collapsed diff reports for every detected patch. |
 | 💾 | **Persistence** | Watch list, timeline, baselines and window state survive restarts; optional *Start with Windows* (Windows) so a rebooted PC keeps watching. |
-| 📥 | **Built-in updater** | Help ▸ *Check for updates* checks GitHub for the latest version — on Windows the full payload (exe + native DLLs) is applied to the install folder via robocopy mirror and the result is reported at next launch; on other platforms it opens the release page for a manual update. |
+| 📥 | **Built-in updater** | The nav rail shows *Check for updates*, which highlights when a newer release is found. Clicking it downloads the release installer and runs it automatically — the Windows setup exe, or the Linux `install.sh` from the tarball — then restarts PatchDiff. |
 | 🔒 | **Local first** | Everything — DLLs, baselines, reports, settings — stays on your device. Nothing is uploaded, nothing phones home beyond the update check. |
 
 <details>
@@ -157,7 +157,7 @@ Download the package for your operating system: Windows and Linux x64/ARM64 buil
 
 | Artifact | What it is |
 |---|---|
-| `PatchDiff-setup-x.y.z.exe` | **Installer** — per-user, no admin required; directory chooser, optional desktop shortcut, Start-menu entry, uninstaller |
+| `PatchDiff-setup-x.y.z.exe` | **Installer** — installs to `C:\Program Files\PatchDiff` by default, with a directory page so you can pick any folder; optional desktop shortcut, Start-menu entry, uninstaller |
 | `PatchDiff-app-win-x64.zip` | **Portable desktop app** — extract anywhere user-writable and run `PatchDiff.exe` |
 | `patchdiff-win-x64.zip` | **CLI** — extract and put `patchdiff.exe` on your `PATH` |
 
@@ -171,8 +171,8 @@ Choose the package matching your CPU architecture:
 |---|---|---|
 | `PatchDiff-linux-x64.AppImage` | x86-64 / AMD64 | `chmod +x PatchDiff-linux-x64.AppImage && ./PatchDiff-linux-x64.AppImage` |
 | `PatchDiff-linux-arm64.AppImage` | ARM64 / AArch64 | `chmod +x PatchDiff-linux-arm64.AppImage && ./PatchDiff-linux-arm64.AppImage` |
-| `PatchDiff-linux-x64.tar.gz` | x86-64 / AMD64 | Extract, then run `./PatchDiff` |
-| `PatchDiff-linux-arm64.tar.gz` | ARM64 / AArch64 | Extract, then run `./PatchDiff` |
+| `PatchDiff-linux-x64.tar.gz` | x86-64 / AMD64 | Extract, then `./install.sh` (or run `./PatchDiff`) |
+| `PatchDiff-linux-arm64.tar.gz` | ARM64 / AArch64 | Extract, then `./install.sh` (or run `./PatchDiff`) |
 
 #### AppImage
 
@@ -187,11 +187,19 @@ For ARM64, use `PatchDiff-linux-arm64.AppImage` instead. AppImages are self-cont
 
 #### Tarball
 
-Extract the matching `PatchDiff-linux-x64.tar.gz` or `PatchDiff-linux-arm64.tar.gz` into a user-writable directory. The archive contains the GUI (`PatchDiff`) and CLI (`patchdiff-cli`):
+Extract the matching `PatchDiff-linux-x64.tar.gz` or `PatchDiff-linux-arm64.tar.gz`, then run the installer. It copies the app into a folder you choose, adds a `patchdiff` launcher to your `PATH`, and registers a desktop entry and icon:
 
 ```bash
 tar -xzf PatchDiff-linux-x64.tar.gz -C ~/Applications/PatchDiff
 cd ~/Applications/PatchDiff
+./install.sh                          # default location
+./install.sh --dir /opt/patchdiff     # or pick a folder
+./install.sh --uninstall              # remove it again
+```
+
+The default install folder is `/opt/patchdiff` when run as root and `~/.local/share/patchdiff` otherwise. The archive also contains the GUI (`PatchDiff`) and CLI (`patchdiff-cli`) if you would rather run them in place:
+
+```bash
 chmod +x PatchDiff patchdiff-cli
 ./PatchDiff                 # GUI
 ./patchdiff-cli version     # CLI

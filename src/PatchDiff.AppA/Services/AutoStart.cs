@@ -5,9 +5,14 @@ namespace PatchDiff.Services;
 
 /// <summary>Cross-platform "start when I sign in":
 /// Windows — HKCU Run key; Linux — XDG autostart desktop entry.
+/// The entry always passes <see cref="LoginArgument"/> so the app can tell a
+/// sign-in launch (start hidden in the tray) from a manual launch (show the window).
 /// (macOS LaunchAgents intentionally not implemented yet.)</summary>
 public static class AutoStart
 {
+    /// <summary>Passed by the autostart entry; the app starts hidden in the tray.</summary>
+    public const string LoginArgument = "--autostart";
+
     const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string RunValueName = "PatchDiff";
     static string DesktopFilePath =>
@@ -39,7 +44,7 @@ public static class AutoStart
         {
             using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true);
             if (enabled)
-                key.SetValue(RunValueName, $"\"{Environment.ProcessPath}\"");
+                key.SetValue(RunValueName, $"\"{Environment.ProcessPath}\" {LoginArgument}");
             else
                 key.DeleteValue(RunValueName, throwOnMissingValue: false);
             return;
@@ -60,7 +65,7 @@ public static class AutoStart
                 "Type=Application\n" +
                 "Name=PatchDiff\n" +
                 "Comment=Watch .NET/Unity DLLs; decompile, diff, report\n" +
-                $"Exec=\"{exe}\"\n" +
+                $"Exec=\"{exe}\" {LoginArgument}\n" +
                 "Terminal=false\n" +
                 "Categories=Development;\n" +
                 "X-GNOME-Autostart-enabled=true\n");
