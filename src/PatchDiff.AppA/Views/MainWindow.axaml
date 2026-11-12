@@ -128,7 +128,7 @@
                   <Border Classes="watch-row" CornerRadius="6" Padding="9" Margin="0,1">
                     <Grid ColumnDefinitions="9,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="7" RowSpacing="4">
                       <Ellipse Width="7" Height="7" Fill="{Binding PillKind, Converter={StaticResource PillBrush}}" VerticalAlignment="Center" />
-                      <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                      <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold"
                                  TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                       <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Meta1}" FontSize="10" Foreground="#8491a5"
                                  TextTrimming="CharacterEllipsis" />
@@ -208,10 +208,7 @@
         <Border Grid.Column="2" Background="#131923" BorderBrush="#283142" BorderThickness="1,0,0,0" Padding="12">
           <DockPanel LastChildFill="True">
             <StackPanel DockPanel.Dock="Top" Spacing="5">
-              <TextBlock Text="INSPECTOR" Classes="section-label" />
-              <TextBlock x:Name="InspectorName" Text="Select an assembly" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,2,0,0" />
-              <TextBlock x:Name="InspectorVersion" Text="Watch a DLL to capture its baseline" FontSize="11" Foreground="#8d99ac" TextWrapping="Wrap" />
-              <TextBlock x:Name="InspectorPath" FontSize="10" Foreground="#748197" TextWrapping="Wrap" Margin="0,0,0,8" />
+              <TextBlock Text="INSPECTOR" Classes="section-label" Margin="0,0,0,4" />
               <StackPanel x:Name="AssemblyActions" Spacing="5" IsEnabled="False">
                 <Button Classes="primary" Click="OnOpenDiff">
                   <StackPanel Orientation="Horizontal" Spacing="8">

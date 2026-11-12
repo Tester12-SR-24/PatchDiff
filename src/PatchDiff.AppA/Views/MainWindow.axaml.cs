@@ -270,25 +270,15 @@ public partial class MainWindow : Window
         WatchedList.ItemsSource = query.Length == 0
             ? _mgr.Watched
             : _mgr.Watched.Where(w => w.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                                      w.Root.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                                       w.Path.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
     void UpdateInspector()
     {
-        var watch = SelectedWatch;
-        if (watch is null)
-        {
-            InspectorName.Text = "Select an assembly";
-            InspectorVersion.Text = "Watch a DLL to capture its baseline";
-            InspectorPath.Text = "";
-            AssemblyActions.IsEnabled = false;
-            return;
-        }
-
-        InspectorName.Text = watch.Name;
-        InspectorVersion.Text = string.IsNullOrWhiteSpace(watch.Meta1) ? watch.Status : watch.Meta1;
-        InspectorPath.Text = DisplayPath(watch.Path);
-        AssemblyActions.IsEnabled = true;
+        // The panel is action-only: the assembly identity lives in the watch list and
+        // the tab headers, so the inspector just enables or disables its buttons.
+        AssemblyActions.IsEnabled = SelectedWatch is not null;
     }
 
     void OnSettings(object? sender, RoutedEventArgs e)
@@ -566,6 +556,9 @@ public partial class MainWindow : Window
     {
         public bool IsClosable { get; set; } = true;
         public string Header { get; set; } = "";
+        /// <summary>Identity of the tab's subject (kind + assembly path). Two watched
+        /// assemblies can share a file name, so the header alone cannot dedupe tabs.</summary>
+        public string Key { get; set; } = "";
         public object Content { get; set; } = "";
         public ICommand CloseCommand { get; }
         public MainWindow Owner { get; init; } = null!;
@@ -612,17 +605,20 @@ public partial class MainWindow : Window
         return row;
     }
 
-    void AddTab(string header, object content, bool closable = true)
+    void AddTab(string header, object content, bool closable = true, string? key = null)
     {
+        var identity = key ?? header;
         foreach (var item in WorkTabs.Items.OfType<TabModel>())
         {
-            if (item.Header == header)
+            if (item.Key == identity)
             {
+                item.Header = header;
+                item.Content = content;
                 WorkTabs.SelectedItem = item;
                 return;
             }
         }
-        var model = new TabModel(this) { Header = header, Content = content, IsClosable = closable };
+        var model = new TabModel(this) { Header = header, Key = identity, Content = content, IsClosable = closable };
         WorkTabs.Items.Add(model);
         WorkTabs.SelectedItem = model;
     }
@@ -641,20 +637,24 @@ public partial class MainWindow : Window
             OpenOverviewTab();
     }
 
-    void OpenOverviewTab()
+    void OpenOverviewTab() => RefreshOverviewTab(select: true);
+
+    void RefreshOverviewTab(bool select)
     {
-        var existing = WorkTabs.Items.OfType<TabModel>().FirstOrDefault(t => t.Header == "Overview");
+        var existing = WorkTabs.Items.OfType<TabModel>().FirstOrDefault(t => t.Key == "overview");
         var panel = BuildOverviewPanel();
         if (existing is not null)
         {
             existing.Content = panel;
-            WorkTabs.SelectedItem = existing;
+            if (select)
+                WorkTabs.SelectedItem = existing;
         }
         else
         {
-            var model = new TabModel(this) { Header = "Overview", Content = panel, IsClosable = false };
+            var model = new TabModel(this) { Header = "Overview", Key = "overview", Content = panel, IsClosable = false };
             WorkTabs.Items.Insert(0, model);
-            WorkTabs.SelectedItem = model;
+            if (select)
+                WorkTabs.SelectedItem = model;
         }
     }
 
@@ -679,7 +679,13 @@ public partial class MainWindow : Window
         // by Avalonia, which made the hero text drift to the middle on wide windows.
         var heroText = new StackPanel { Spacing = 5, HorizontalAlignment = HorizontalAlignment.Left };
         heroText.Children.Add(new TextBlock { Text = "DIFF WORKBENCH", FontSize = 10, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#72dcd0")), HorizontalAlignment = HorizontalAlignment.Left });
-        heroText.Children.Add(new TextBlock { Text = recentDiff?.Title ?? "Your assembly workspace is ready", FontSize = 22, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Left });
+        heroText.Children.Add(new TextBlock
+        {
+            Text = recentDiff?.Title
+                ?? selected?.DisplayName
+                ?? "Your assembly workspace is ready",
+            FontSize = 22, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Left,
+        });
         var heroDeltas = recentDiff is null ? (0, 0, 0) : DiffService.LineDeltas(recentDiff);
         heroText.Children.Add(new TextBlock
         {
@@ -815,7 +821,7 @@ public partial class MainWindow : Window
                 AddLog($"{w.Name}: diff saved to history.");
             });
         }
-        AddTab($"Diff — {w.Name}", view);
+        AddTab($"Diff — {w.DisplayName}", view, key: $"diff|{w.Path}");
     }
 
     BrowseView? _activeBrowse;
@@ -831,7 +837,7 @@ public partial class MainWindow : Window
         var view = new BrowseView(snap, w);
         _activeBrowse = view;
         view.TypeSelectionChanged += enabled => ExportCsBtn.IsEnabled = enabled;
-        AddTab($"Browse — {w.Name}", view);
+        AddTab($"Browse — {w.DisplayName}", view, key: $"browse|{w.Path}");
     }
 
     void OpenHistoryTab(WatchedDll w)
@@ -839,11 +845,11 @@ public partial class MainWindow : Window
         var view = new HistoryView(w);
         view.DiffRequested += diff => Dispatcher.UIThread.Post(() =>
         {
-            AddTab($"Diff — {w.Name} (history)", new DiffView(diff));
+            AddTab($"Diff — {w.DisplayName} (history)", new DiffView(diff), key: $"diff|{w.Path}");
             _latestDiff = diff;
             UpdateFooter();
         });
-        AddTab($"History — {w.Name}", view);
+        AddTab($"History — {w.DisplayName}", view, key: $"history|{w.Path}");
     }
 
 
@@ -911,6 +917,10 @@ public partial class MainWindow : Window
     void OnWatchSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         AssemblyActions.IsEnabled = SelectedWatch is not null;
+        UpdateInspector();
+        // The Overview tab describes the selected assembly, so keep it in sync. Rebuild
+        // its content in place; only switch to it when it is already the active tab.
+        RefreshOverviewTab(select: false);
     }
 
     public AssemblyDiffResult? GetLastDiffFor(string path) =>
