@@ -10,8 +10,9 @@ using System.Text.Json;
 namespace PatchDiff.Services;
 
 /// <summary>One GitHub release: tag, display name, page URL, download URL of the app asset,
-/// download URL of the Windows installer, download URL of the Linux archive, and publish time.</summary>
-public sealed record ReleaseInfo(string Tag, string Name, string PageUrl, string AssetUrl, string InstallerUrl, string LinuxUrl, DateTime PublishedUtc);
+/// download URL of the Windows installer, download URL of the Linux archive, download URL
+/// of the Linux AppImage, and publish time.</summary>
+public sealed record ReleaseInfo(string Tag, string Name, string PageUrl, string AssetUrl, string InstallerUrl, string LinuxUrl, string AppImageUrl, DateTime PublishedUtc);
 
 /// <summary>
 /// Follows the repository's GitHub releases: check → download → stage → apply on exit.
@@ -42,6 +43,10 @@ public sealed class UpdaterService
     static string LinuxAssetName => RuntimeInformation.ProcessArchitecture == Architecture.Arm64
         ? "PatchDiff-linux-arm64.tar.gz"
         : "PatchDiff-linux-x64.tar.gz";
+    // AppImage runs update by replacing the AppImage file itself.
+    static string AppImageAssetName => RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+        ? "PatchDiff-linux-arm64.AppImage"
+        : "PatchDiff-linux-x64.AppImage";
 
     readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
 
@@ -62,6 +67,7 @@ public sealed class UpdaterService
             string? assetUrl = null;
             string? installerUrl = null;
             string? linuxUrl = null;
+            string? appImageUrl = null;
             if (root.TryGetProperty("assets", out var assets))
             {
                 foreach (var a in assets.EnumerateArray())
@@ -74,6 +80,8 @@ public sealed class UpdaterService
                         installerUrl = a.GetProperty("browser_download_url").GetString();
                     else if (string.Equals(aname, LinuxAssetName, StringComparison.OrdinalIgnoreCase))
                         linuxUrl = a.GetProperty("browser_download_url").GetString();
+                    else if (string.Equals(aname, AppImageAssetName, StringComparison.OrdinalIgnoreCase))
+                        appImageUrl = a.GetProperty("browser_download_url").GetString();
                 }
             }
             DateTime.TryParse(root.GetProperty("published_at").GetString(), out var published);
@@ -84,6 +92,7 @@ public sealed class UpdaterService
                 assetUrl ?? "",
                 installerUrl ?? "",
                 linuxUrl ?? "",
+                appImageUrl ?? "",
                 published);
         }
         catch (OperationCanceledException) { throw; }
@@ -122,6 +131,15 @@ public sealed class UpdaterService
     {
         try
         {
+            // The assembly's informational version is the only reliable source on
+            // Linux: a single-file publish is an ELF binary with no PE version
+            // resource, so FileVersionInfo returns nothing there and the app would
+            // think it is older than every release.
+            var info = Assembly.GetEntryAssembly()?
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrWhiteSpace(info))
+                return info.Split('+')[0].Trim();
+
             // Single-file publishes report an empty Assembly.Location, so resolve the
             // real process path first and fall back to the app base directory.
             var path = Environment.ProcessPath;
@@ -320,6 +338,108 @@ public sealed class UpdaterService
         {
             WriteUpdaterLog("linux archive download", ex);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Download the release's AppImage and return its path, or null on failure.
+    /// Used when PatchDiff is running from an AppImage: the file itself is replaced.
+    /// </summary>
+    public async Task<string?> DownloadAppImageAsync(ReleaseInfo release, Action<string>? progress = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(release.AppImageUrl))
+            return null;
+        try
+        {
+            var dir = Path.Combine(SnapshotStore.DataRoot, "update");
+            Directory.CreateDirectory(dir);
+            var target = Path.Combine(dir, AppImageAssetName);
+            if (File.Exists(target))
+                File.Delete(target);
+
+            progress?.Invoke($"Downloading {AppImageAssetName}…");
+            using var req = NewRequest(HttpMethod.Get, release.AppImageUrl);
+            req.Headers.Accept.ParseAdd("application/octet-stream");
+            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                return null;
+
+            await using (var src = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false))
+            await using (var dst = File.Create(target))
+            {
+                var buffer = new byte[1 << 16];
+                long total = resp.Content.Headers.ContentLength ?? -1, done = 0;
+                int read;
+                while ((read = await src.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+                {
+                    await dst.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                    done += read;
+                    if (total > 0)
+                        progress?.Invoke($"Downloading… {done * 100 / total}%");
+                }
+            }
+
+            // ELF magic: 7f 45 4c 46. Anything else is a failed or HTML download.
+            using (var fs = File.OpenRead(target))
+            {
+                var magic = new byte[4];
+                if (fs.Read(magic, 0, 4) != 4 || magic[0] != 0x7f || magic[1] != 0x45 ||
+                    magic[2] != 0x4c || magic[3] != 0x46)
+                {
+                    WriteUpdaterLog("appimage validation",
+                        new InvalidDataException($"Downloaded AppImage is not an ELF file: {target}"));
+                    try { File.Delete(target); } catch { }
+                    return null;
+                }
+            }
+            return target;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            WriteUpdaterLog("appimage download", ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Replace the running AppImage with a downloaded one once this process exits,
+    /// then relaunch it.
+    /// </summary>
+    public static bool LaunchAppImageUpdateAfterExit(string newAppImage, string currentAppImage)
+    {
+        try
+        {
+            var pid = Environment.ProcessId;
+            var script = Path.Combine(Path.GetTempPath(), "patchdiff-appimage-update.sh");
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("#!/bin/sh");
+            sb.AppendLine("# PatchDiff update — waits for the running instance, swaps the AppImage, relaunches.");
+            sb.AppendLine("set -eu");
+            sb.AppendLine($"while kill -0 {pid} 2>/dev/null; do sleep 1; done");
+            sb.AppendLine($"cp -f '{newAppImage}' '{currentAppImage}'");
+            sb.AppendLine($"chmod 755 '{currentAppImage}'");
+            sb.AppendLine($"rm -f '{newAppImage}'");
+            sb.AppendLine($"nohup '{currentAppImage}' >/dev/null 2>&1 &");
+            sb.AppendLine("rm -f \"$0\"");
+            File.WriteAllText(script, sb.ToString());
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(script,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+
+            Process.Start(new ProcessStartInfo("/bin/sh", $"'{script}'")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            WriteUpdaterLog("appimage update launch", ex);
+            return false;
         }
     }
 

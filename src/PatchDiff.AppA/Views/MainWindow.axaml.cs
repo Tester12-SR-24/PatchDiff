@@ -1307,24 +1307,43 @@ public partial class MainWindow : Window
     async Task InstallLinuxUpdateAsync(ReleaseInfo release)
     {
         var installDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        var isAppImage = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPIMAGE")) ||
-                         installDir.Contains("/.mount_", StringComparison.Ordinal) ||
-                         installDir.StartsWith("/tmp/", StringComparison.Ordinal);
-        if (isAppImage)
+        var appImagePath = Environment.GetEnvironmentVariable("APPIMAGE");
+        var updater = new UpdaterService();
+
+        // Running from an AppImage: replace the AppImage file itself.
+        if (!string.IsNullOrEmpty(appImagePath) && File.Exists(appImagePath))
         {
-            AddLog("Running from an AppImage — opening the release page so you can download the new AppImage.");
+            SetUpdateState(checking: true);
+            AddLog($"Update available: {release.Tag} — downloading the new AppImage…");
+            string? image = null;
             try
             {
-                Process.Start(new ProcessStartInfo(release.PageUrl) { UseShellExecute = true });
+                image = await updater.DownloadAppImageAsync(release,
+                    msg => Dispatcher.UIThread.Post(() => AddLog(msg))).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
-                AddLog($"Could not open the release page: {ex.Message}");
+                AddLog($"Update download failed: {ex.Message}");
             }
+            if (image is null)
+            {
+                SetUpdateState(checking: false);
+                AddLog("Update download failed — details in the updater log.");
+                MessageBox.Show(this, "The update could not be downloaded.\n\nDetails are in the updater log.", "Update failed");
+                return;
+            }
+            AddLog("Replacing the AppImage and restarting…");
+            if (!UpdaterService.LaunchAppImageUpdateAfterExit(image, appImagePath))
+            {
+                SetUpdateState(checking: false);
+                AddLog("Could not start the update — details in the updater log.");
+                MessageBox.Show(this, "The update could not be started.\n\nDetails are in the updater log.", "Update failed");
+                return;
+            }
+            (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
             return;
         }
 
-        var updater = new UpdaterService();
         SetUpdateState(checking: true);
         AddLog($"Update available: {release.Tag} — downloading the Linux package…");
         string? archive = null;
