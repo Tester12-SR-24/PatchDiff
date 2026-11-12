@@ -294,7 +294,8 @@ jobs:
           EOF
           chmod +x AppDir/AppRun AppDir/usr/bin/patchdiff AppDir/usr/lib/patchdiff/PatchDiff
           export ARCH=${{ matrix.appimage_arch }}
-          ./appimagetool.AppImage --appimage-extract-and-run \
+          # -n: no AppStream metadata check (we do not ship metainfo).
+          ./appimagetool.AppImage --appimage-extract-and-run -n \
             AppDir "PatchDiff-${{ matrix.rid }}.AppImage"
           chmod +x "PatchDiff-${{ matrix.rid }}.AppImage"
 
