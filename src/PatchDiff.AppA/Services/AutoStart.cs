@@ -47,6 +47,7 @@ public static class AutoStart
     /// entry can be hidden from Task Manager's Startup tab, so write the enabled value
     /// (12 bytes, first byte 0x02) when registering autostart.
     /// </summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     static void MarkApproved()
     {
         try
