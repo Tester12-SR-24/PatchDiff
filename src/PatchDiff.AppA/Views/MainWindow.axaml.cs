@@ -105,7 +105,11 @@ public partial class MainWindow : Window
 
         // Quiet update check once the window is up: highlights the nav button when a
         // newer release exists, and never interrupts startup.
-        Opened += (_, _) => Dispatcher.UIThread.Post(async () => await CheckForUpdatesQuietlyAsync());
+        Opened += (_, _) =>
+        {
+            FitToScreen();
+            Dispatcher.UIThread.Post(async () => await CheckForUpdatesQuietlyAsync());
+        };
     }
 
     void CreateTrayIcon()
@@ -1337,7 +1341,7 @@ public partial class MainWindow : Window
             }
             AddLog("Update staged — applying on exit…");
             updater.LaunchApplyAfterExit(staging);
-            (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+            ExitForUpdate();
             return;
         }
 
@@ -1349,7 +1353,7 @@ public partial class MainWindow : Window
             MessageBox.Show(this, "The installer could not be started.\n\nDetails are in the updater log.", "Update failed");
             return;
         }
-        (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+        ExitForUpdate();
     }
 
     /// <summary>
@@ -1393,7 +1397,7 @@ public partial class MainWindow : Window
                 MessageBox.Show(this, "The update could not be started.\n\nDetails are in the updater log.", "Update failed");
                 return;
             }
-            (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+            ExitForUpdate();
             return;
         }
 
@@ -1425,6 +1429,41 @@ public partial class MainWindow : Window
             MessageBox.Show(this, "The installer could not be started.\n\nDetails are in the updater log.", "Update failed");
             return;
         }
+        ExitForUpdate();
+    }
+
+    /// <summary>
+    /// Shrink the window to the screen's working area. The default size is larger than
+    /// some laptop displays, which left the bottom of the UI off-screen.
+    /// </summary>
+    void FitToScreen()
+    {
+        try
+        {
+            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+            if (screen is null)
+                return;
+            var scale = screen.Scaling <= 0 ? 1.0 : screen.Scaling;
+            var maxWidth = screen.WorkingArea.Width / scale - 24;
+            var maxHeight = screen.WorkingArea.Height / scale - 24;
+            if (maxWidth > 0 && Width > maxWidth)
+                Width = maxWidth;
+            if (maxHeight > 0 && Height > maxHeight)
+                Height = maxHeight;
+        }
+        catch { /* sizing is cosmetic — never block startup */ }
+    }
+
+    /// <summary>
+    /// Leave the process so the update script can replace the files. The tray icon is
+    /// disposed first (a live tray can keep the process alive on Linux), and a timer
+    /// forces the exit if the UI thread does not shut down on its own — otherwise the
+    /// updater's "wait for the old process" loop would spin forever.
+    /// </summary>
+    void ExitForUpdate()
+    {
+        try { DisposeTray(); } catch { /* tray is optional */ }
+        DispatcherTimer.RunOnce(() => Environment.Exit(0), TimeSpan.FromSeconds(4));
         (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
     }
 
@@ -1620,7 +1659,7 @@ public partial class MainWindow
         _reallyExiting = true;
         DisposeTray();
         Close();
-        (App.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+        ExitForUpdate();
     }
 }
 

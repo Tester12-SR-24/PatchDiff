@@ -137,6 +137,9 @@ for entry in "$SRC_DIR"/*; do
     case "$base" in
         install.sh|*.AppImage) continue ;;
     esac
+    # Remove first: replacing a running binary in place fails with ETXTBSY
+    # ("Text file busy") on Linux, and unlinking it always works.
+    rm -rf "$INSTALL_DIR/$base"
     cp -a "$entry" "$INSTALL_DIR/"
 done
 chmod -R a+rX "$INSTALL_DIR"

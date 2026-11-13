@@ -416,7 +416,9 @@ public sealed class UpdaterService
             sb.AppendLine("#!/bin/sh");
             sb.AppendLine("# PatchDiff update — waits for the running instance, swaps the AppImage, relaunches.");
             sb.AppendLine("set -u");
-            sb.AppendLine($"while kill -0 {pid} 2>/dev/null; do sleep 1; done");
+            sb.AppendLine($"i=0; while kill -0 {pid} 2>/dev/null && [ $i -lt 30 ]; do sleep 1; i=$((i+1)); done");
+            sb.AppendLine($"kill -9 {pid} 2>/dev/null || true");
+            sb.AppendLine("sleep 1");
             sb.AppendLine($"if cp -f '{newAppImage}' '{currentAppImage}' 2>/dev/null; then");
             sb.AppendLine($"  chmod 755 '{currentAppImage}'");
             sb.AppendLine($"  rm -f '{newAppImage}'");
@@ -462,7 +464,9 @@ public sealed class UpdaterService
             sb.AppendLine("#!/bin/sh");
             sb.AppendLine("# PatchDiff update — waits for the running instance, installs, relaunches.");
             sb.AppendLine("set -u");
-            sb.AppendLine($"while kill -0 {pid} 2>/dev/null; do sleep 1; done");
+            sb.AppendLine($"i=0; while kill -0 {pid} 2>/dev/null && [ $i -lt 30 ]; do sleep 1; i=$((i+1)); done");
+            sb.AppendLine($"kill -9 {pid} 2>/dev/null || true");
+            sb.AppendLine("sleep 1");
             sb.AppendLine($"rm -rf '{work}'");
             sb.AppendLine($"mkdir -p '{work}'");
             sb.AppendLine($"if tar -xzf '{archivePath}' -C '{work}' && sh '{work}/install.sh' --dir '{installDir}' --yes; then");
@@ -515,8 +519,20 @@ public sealed class UpdaterService
             var cmd = new System.Text.StringBuilder();
             cmd.AppendLine("@echo off");
             cmd.AppendLine("rem PatchDiff update — waits for the running instance, then runs the installer.");
+            cmd.AppendLine("set tries=0");
             cmd.AppendLine(":wait");
-            cmd.AppendLine($"tasklist /FI \"PID eq {pid}\" | find \"{pid}\" >nul && (timeout /t 1 /nobreak >nul & goto wait)");
+            // Fully qualified: a Git-for-Windows install puts a Unix `find` on PATH,
+            // which would break this test.
+            cmd.AppendLine($"\"%SystemRoot%\\System32\\tasklist.exe\" /FI \"PID eq {pid}\" /NH | \"%SystemRoot%\\System32\\find.exe\" \"{pid}\" >nul");
+            cmd.AppendLine("if errorlevel 1 goto proceed");
+            cmd.AppendLine("set /a tries+=1");
+            cmd.AppendLine("if %tries% GEQ 30 goto force");
+            cmd.AppendLine("timeout /t 1 /nobreak >nul");
+            cmd.AppendLine("goto wait");
+            cmd.AppendLine(":force");
+            cmd.AppendLine($"\"%SystemRoot%\\System32\\taskkill.exe\" /F /PID {pid} >nul 2>&1");
+            cmd.AppendLine("timeout /t 1 /nobreak >nul");
+            cmd.AppendLine(":proceed");
             cmd.AppendLine($"start \"\" \"{installerPath}\" /SILENT /CLOSEAPPLICATIONS /NORESTART /SUPPRESSMSGBOXES");
             cmd.AppendLine("del \"%~f0\"");
             File.WriteAllText(script, cmd.ToString());
@@ -565,8 +581,20 @@ public sealed class UpdaterService
             var cmd = new System.Text.StringBuilder();
             cmd.AppendLine("@echo off");
             cmd.AppendLine("rem PatchDiff update apply — waits for the running instance, swaps files, relaunches.");
+            cmd.AppendLine("set tries=0");
             cmd.AppendLine(":wait");
-            cmd.AppendLine($"tasklist /FI \"PID eq {pid}\" | find \"{pid}\" >nul && (timeout /t 1 /nobreak >nul & goto wait)");
+            // Fully qualified: a Git-for-Windows install puts a Unix `find` on PATH,
+            // which would break this test.
+            cmd.AppendLine($"\"%SystemRoot%\\System32\\tasklist.exe\" /FI \"PID eq {pid}\" /NH | \"%SystemRoot%\\System32\\find.exe\" \"{pid}\" >nul");
+            cmd.AppendLine("if errorlevel 1 goto proceed");
+            cmd.AppendLine("set /a tries+=1");
+            cmd.AppendLine("if %tries% GEQ 30 goto force");
+            cmd.AppendLine("timeout /t 1 /nobreak >nul");
+            cmd.AppendLine("goto wait");
+            cmd.AppendLine(":force");
+            cmd.AppendLine($"\"%SystemRoot%\\System32\\taskkill.exe\" /F /PID {pid} >nul 2>&1");
+            cmd.AppendLine("timeout /t 1 /nobreak >nul");
+            cmd.AppendLine(":proceed");
             cmd.AppendLine("rem apply: robocopy mirrors the staged build over the install folder");
             cmd.AppendLine($"robocopy \"{stageTrimmed}\" \"{installTrimmed}\" /MIR >nul");
             cmd.AppendLine("rem robocopy exit codes 0-7 are success");
