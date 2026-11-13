@@ -23,6 +23,9 @@ UsePreviousAppDir=yes
 ; Program Files needs elevation; the updater runs this installer, so updates
 ; elevate the same way instead of writing into a protected folder.
 PrivilegesRequired=admin
+; Lets the updater pass /CURRENTUSER for an existing user-writable install
+; (no UAC) while a fresh install still defaults to Program Files.
+PrivilegesRequiredOverridesAllowed=commandline
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes

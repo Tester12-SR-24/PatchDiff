@@ -29,6 +29,10 @@ public sealed record ReleaseInfo(string Tag, string Name, string PageUrl, string
 /// </summary>
 public sealed class UpdaterService
 {
+    // Windows tools are fully qualified: a Git-for-Windows install puts Unix
+    // builds of find/timeout earlier on PATH, and cmd would run those instead.
+    const string WinDir = "\"%SystemRoot%\\System32\\";
+
     const string Repo = "Tester12-SR-24/PatchDiff";
     // Must match the app zip published by .github/workflows/release.yml
     // (dist/PatchDiff-app-win-x64.zip) and the README's artifact table. The
@@ -499,6 +503,22 @@ public sealed class UpdaterService
     }
 
     /// <summary>
+    /// True when this process can create files in its own folder. Program Files is not
+    /// writable for a standard user, which is what decides whether the installer has to
+    /// ask for elevation.
+    /// </summary>
+    public static bool CanWriteInstallFolder()
+    {
+        try
+        {
+            var probe = Path.Combine(AppContext.BaseDirectory, $".write-test-{Guid.NewGuid():N}.tmp");
+            using (var fs = File.Create(probe, 1, FileOptions.DeleteOnClose)) { }
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
     /// Run the downloaded installer once this process has exited. The installer is
     /// started silently with /CLOSEAPPLICATIONS so an upgrade never stops on a
     /// "close the running app?" prompt, and it keeps the folder chosen previously.
@@ -515,6 +535,7 @@ public sealed class UpdaterService
             }
 
             var pid = Environment.ProcessId;
+            var installDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
             var script = Path.Combine(Path.GetTempPath(), "patchdiff-install-update.cmd");
             var cmd = new System.Text.StringBuilder();
             cmd.AppendLine("@echo off");
@@ -523,26 +544,45 @@ public sealed class UpdaterService
             cmd.AppendLine(":wait");
             // Fully qualified: a Git-for-Windows install puts a Unix `find` on PATH,
             // which would break this test.
-            cmd.AppendLine($"\"%SystemRoot%\\System32\\tasklist.exe\" /FI \"PID eq {pid}\" /NH | \"%SystemRoot%\\System32\\find.exe\" \"{pid}\" >nul");
+            cmd.AppendLine($"{WinDir}tasklist.exe\" /FI \"PID eq {pid}\" /NH | {WinDir}find.exe\" \"{pid}\" >nul");
             cmd.AppendLine("if errorlevel 1 goto proceed");
             cmd.AppendLine("set /a tries+=1");
             cmd.AppendLine("if %tries% GEQ 30 goto force");
-            cmd.AppendLine("timeout /t 1 /nobreak >nul");
+            cmd.AppendLine($"{WinDir}timeout.exe\" /t 1 /nobreak >nul");
             cmd.AppendLine("goto wait");
             cmd.AppendLine(":force");
-            cmd.AppendLine($"\"%SystemRoot%\\System32\\taskkill.exe\" /F /PID {pid} >nul 2>&1");
-            cmd.AppendLine("timeout /t 1 /nobreak >nul");
+            cmd.AppendLine($"{WinDir}taskkill.exe\" /F /PID {pid} >nul 2>&1");
+            cmd.AppendLine($"{WinDir}timeout.exe\" /t 1 /nobreak >nul");
             cmd.AppendLine(":proceed");
-            cmd.AppendLine($"start \"\" \"{installerPath}\" /SILENT /CLOSEAPPLICATIONS /NORESTART /SUPPRESSMSGBOXES");
+            // /DIR pins the upgrade to the folder the app is running from. Without it a
+            // per-user install would be upgraded into Program Files (or vice versa) and
+            // the old copy would keep launching.
+            // A folder this user can write to (the old per-user install) needs no UAC, so
+            // ask for a per-user install there; Program Files keeps the elevated default.
+            var privileges = CanWriteInstallFolder() ? " /CURRENTUSER" : "";
+            cmd.AppendLine($"start \"\" \"{installerPath}\" /SILENT /CLOSEAPPLICATIONS /NORESTART /SUPPRESSMSGBOXES /DIR=\"{installDir}\"{privileges}");
             cmd.AppendLine("del \"%~f0\"");
             File.WriteAllText(script, cmd.ToString());
 
-            Process.Start(new ProcessStartInfo("cmd.exe", "/c \"" + script + "\"")
+            // Elevate the helper when the app sits in a protected folder (Program Files):
+            // the UAC prompt then appears while the app is still on screen, instead of
+            // being raised by a hidden process after it exits.
+            var needsElevation = !CanWriteInstallFolder();
+            var psi = new ProcessStartInfo("cmd.exe", "/c \"" + script + "\"")
             {
                 CreateNoWindow = true,
-                UseShellExecute = false,
-            });
+                UseShellExecute = needsElevation,
+            };
+            if (needsElevation)
+                psi.Verb = "runas";
+            Process.Start(psi);
             return true;
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            // 1223 = the user dismissed the elevation prompt.
+            WriteUpdaterLog("installer launch", ex);
+            return false;
         }
         catch (Exception ex)
         {
@@ -585,24 +625,24 @@ public sealed class UpdaterService
             cmd.AppendLine(":wait");
             // Fully qualified: a Git-for-Windows install puts a Unix `find` on PATH,
             // which would break this test.
-            cmd.AppendLine($"\"%SystemRoot%\\System32\\tasklist.exe\" /FI \"PID eq {pid}\" /NH | \"%SystemRoot%\\System32\\find.exe\" \"{pid}\" >nul");
+            cmd.AppendLine($"{WinDir}tasklist.exe\" /FI \"PID eq {pid}\" /NH | {WinDir}find.exe\" \"{pid}\" >nul");
             cmd.AppendLine("if errorlevel 1 goto proceed");
             cmd.AppendLine("set /a tries+=1");
             cmd.AppendLine("if %tries% GEQ 30 goto force");
-            cmd.AppendLine("timeout /t 1 /nobreak >nul");
+            cmd.AppendLine($"{WinDir}timeout.exe\" /t 1 /nobreak >nul");
             cmd.AppendLine("goto wait");
             cmd.AppendLine(":force");
-            cmd.AppendLine($"\"%SystemRoot%\\System32\\taskkill.exe\" /F /PID {pid} >nul 2>&1");
-            cmd.AppendLine("timeout /t 1 /nobreak >nul");
+            cmd.AppendLine($"{WinDir}taskkill.exe\" /F /PID {pid} >nul 2>&1");
+            cmd.AppendLine($"{WinDir}timeout.exe\" /t 1 /nobreak >nul");
             cmd.AppendLine(":proceed");
             cmd.AppendLine("rem apply: robocopy mirrors the staged build over the install folder");
-            cmd.AppendLine($"robocopy \"{stageTrimmed}\" \"{installTrimmed}\" /MIR >nul");
+            cmd.AppendLine($"{WinDir}robocopy.exe\" \"{stageTrimmed}\" \"{installTrimmed}\" /MIR >nul");
             cmd.AppendLine("rem robocopy exit codes 0-7 are success");
             cmd.AppendLine("set RC=%errorlevel%");
             cmd.AppendLine("if %RC% GTR 7 (");
             cmd.AppendLine("    rem transient lock (AV scan etc.) — wait a beat and try once more");
-            cmd.AppendLine("    timeout /t 2 /nobreak >nul");
-            cmd.AppendLine($"    robocopy \"{stageTrimmed}\" \"{installTrimmed}\" /MIR >nul");
+            cmd.AppendLine($"    {WinDir}timeout.exe\" /t 2 /nobreak >nul");
+            cmd.AppendLine($"    {WinDir}robocopy.exe\" \"{stageTrimmed}\" \"{installTrimmed}\" /MIR >nul");
             cmd.AppendLine("    set RC=%errorlevel%");
             cmd.AppendLine(")");
             cmd.AppendLine("rem record the apply result where the next launch will find it");
