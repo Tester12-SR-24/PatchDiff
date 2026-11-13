@@ -77,6 +77,10 @@ public partial class MainWindow : Window
         // updated and expects the window, even if they normally start hidden.
         StartHiddenToTray = !Program.ForceShow && (Program.LaunchedAtLogin || _settings.StartMinimized);
         AutoStartItem.IsChecked = AutoStart.IsEnabled();
+        // An entry written by an older build can point at a folder the app no longer
+        // lives in (per-user install replaced by a Program Files one), in which case
+        // sign-in silently started nothing. Fix the stored command on every launch.
+        AutoStart.RepairIfStale();
         AutoStartItem.IsVisible = AutoStart.IsSupported;
         CreateTrayIcon();
         // A hidden start is only safe when the tray icon actually exists — otherwise the

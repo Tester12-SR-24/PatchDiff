@@ -26,7 +26,9 @@ public sealed class DiffService
 
         var result = new AssemblyDiffResult
         {
-            Title = title ?? Path.GetFileName(newSnap.AssemblyPath),
+            // Use the shared label so the app tabs, the Overview and the HTML report all
+            // name the assembly the same way ("Assembly-CSharp.dll (ATLYSS)").
+            Title = title ?? AssemblyNaming.DisplayName(newSnap.AssemblyPath),
             OldSha = oldSnap.Sha256[..12],
             NewSha = newSnap.Sha256[..12],
         };

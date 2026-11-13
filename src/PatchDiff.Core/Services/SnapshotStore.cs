@@ -131,7 +131,13 @@ td.same{background:#fff}
 """);
         sb.Append("</style></head><body>");
         sb.Append($"<h2>{Escape(diff.Title)}</h2>");
-        sb.Append($"<p class=\"summary\">+{diff.Added} added &nbsp; −{diff.Removed} removed &nbsp; ~{diff.Modified} modified</p>");
+        // Line counts, exactly like the app's Overview. Reporting type counts here made
+        // the page disagree with the app ("~6 modified" vs "~18 lines modified").
+        var totals = DiffService.LineDeltas(diff);
+        var typeCount = diff.Added + diff.Removed + diff.Modified;
+        sb.Append($"<p class=\"summary\">+{totals.Added} lines added &nbsp; −{totals.Removed} lines removed &nbsp; "
+                  + $"~{totals.Modified} lines modified &nbsp;·&nbsp; {typeCount} type{(typeCount == 1 ? "" : "s")} changed"
+                  + $"<br><span class=\"mono\">baseline {Escape(diff.OldSha)} → current {Escape(diff.NewSha)}</span></p>");
         sb.Append("<p class=\"toolbar\"><button onclick=\"document.querySelectorAll('details.type').forEach(d=>d.open=true)\">Expand all</button>"
                   + "<button onclick=\"document.querySelectorAll('details.type').forEach(d=>d.open=false)\">Collapse all</button></p>");
 

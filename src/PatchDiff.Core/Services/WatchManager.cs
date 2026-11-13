@@ -10,63 +10,11 @@ public sealed class WatchedDll : System.ComponentModel.INotifyPropertyChanged
     public required string Path { get; init; }
     public string Name => System.IO.Path.GetFileName(Path);
 
-    /// <summary>
-    /// The game or mod this DLL belongs to, used to tell apart assemblies that share a
-    /// file name (every Unity game ships an Assembly-CSharp.dll).
-    ///
-    /// Unity layout: &lt;game&gt;/&lt;game&gt;_Data/Managed/Assembly-CSharp.dll → "&lt;game&gt;".
-    /// Anything else falls back to the folder two levels up, then the parent folder.
-    /// </summary>
-    public string Root
-    {
-        get
-        {
-            try
-            {
-                var dir = System.IO.Path.GetDirectoryName(Path);
-                if (string.IsNullOrEmpty(dir))
-                    return "";
-                var managed = new System.IO.DirectoryInfo(dir);
-                // .../<game>_Data/Managed → the game folder is the parent of <game>_Data
-                if (managed.Name.Equals("Managed", StringComparison.OrdinalIgnoreCase) &&
-                    managed.Parent is { } dataDir &&
-                    dataDir.Name.EndsWith("_Data", StringComparison.OrdinalIgnoreCase))
-                {
-                    return dataDir.Parent?.Name ?? dataDir.Name;
-                }
-
-                // Otherwise walk up past build-output folders (bin/Debug/net8.0, libs,
-                // plugins…) and take the first meaningful folder name.
-                for (var d = managed; d is not null; d = d.Parent)
-                {
-                    if (d.Parent is null)
-                        break; // drive root or filesystem root — nothing useful here
-                    if (!IsGenericFolder(d.Name))
-                        return d.Name;
-                }
-                return "";
-            }
-            catch { return ""; }
-        }
-    }
-
-    static bool IsGenericFolder(string name) =>
-        name.Equals("Managed", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("obj", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("Debug", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("Release", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("x64", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("x86", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("AnyCPU", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("lib", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("libs", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("plugins", StringComparison.OrdinalIgnoreCase) ||
-        name.Equals("runtimes", StringComparison.OrdinalIgnoreCase) ||
-        name.StartsWith("net", StringComparison.OrdinalIgnoreCase) && name.Length > 3 && char.IsDigit(name[3]);
+    /// <summary>The game or mod this DLL belongs to (shared with the diff/report code).</summary>
+    public string Root => AssemblyNaming.Root(Path);
 
     /// <summary>"Assembly-CSharp.dll (ATLYSS)" — the name plus where it came from.</summary>
-    public string DisplayName => string.IsNullOrEmpty(Root) ? Name : $"{Name} ({Root})";
+    public string DisplayName => AssemblyNaming.DisplayName(Path);
     public FileSystemWatcher? Watcher { get; set; }
 
     string _status = "Initializing…";
@@ -250,7 +198,8 @@ public sealed class WatchManager : IDisposable
                 Log($"Manual compare: {oldPath} ↔ {newPath}");
                 var newSnap = _decompiler.Build(newPath, Report);
                 var oldSnap = _decompiler.Build(oldPath);
-                var diff = _diff.Compare(oldSnap, newSnap, title: $"{Path.GetFileName(oldPath)} → {Path.GetFileName(newPath)}");
+                // Same label the watch list and tabs use, so the report header names the game too.
+                var diff = _diff.Compare(oldSnap, newSnap, title: AssemblyNaming.DisplayName(newPath));
                 if (diff.HasChanges)
                 {
                     var report = SnapshotStore.WriteHtmlReport(diff);
