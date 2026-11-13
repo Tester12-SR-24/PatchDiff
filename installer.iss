@@ -49,7 +49,10 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+; No skipifsilent: the updater runs this installer silently and the app must come
+; back up afterwards. --show forces the window even if the user normally starts in
+; the tray, so a fresh install visibly opens the app.
+Filename: "{app}\{#AppExe}"; Parameters: "--show"; Description: "Launch {#AppName}"; Flags: nowait postinstall
 
 [UninstallDelete]
 ; runtime-extracted files the app may have created next to the exe

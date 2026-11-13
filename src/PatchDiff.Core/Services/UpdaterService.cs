@@ -415,12 +415,15 @@ public sealed class UpdaterService
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("#!/bin/sh");
             sb.AppendLine("# PatchDiff update — waits for the running instance, swaps the AppImage, relaunches.");
-            sb.AppendLine("set -eu");
+            sb.AppendLine("set -u");
             sb.AppendLine($"while kill -0 {pid} 2>/dev/null; do sleep 1; done");
-            sb.AppendLine($"cp -f '{newAppImage}' '{currentAppImage}'");
-            sb.AppendLine($"chmod 755 '{currentAppImage}'");
-            sb.AppendLine($"rm -f '{newAppImage}'");
-            sb.AppendLine($"nohup '{currentAppImage}' >/dev/null 2>&1 &");
+            sb.AppendLine($"if cp -f '{newAppImage}' '{currentAppImage}' 2>/dev/null; then");
+            sb.AppendLine($"  chmod 755 '{currentAppImage}'");
+            sb.AppendLine($"  rm -f '{newAppImage}'");
+            sb.AppendLine("fi");
+            // Always relaunch, even if the swap failed: leaving the user with no window
+            // is worse than running the previous version.
+            sb.AppendLine($"nohup '{currentAppImage}' --show >/dev/null 2>&1 &");
             sb.AppendLine("rm -f \"$0\"");
             File.WriteAllText(script, sb.ToString());
             if (!OperatingSystem.IsWindows())
@@ -429,11 +432,11 @@ public sealed class UpdaterService
                     UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             }
 
-            Process.Start(new ProcessStartInfo("/bin/sh", $"'{script}'")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            });
+            // ArgumentList, not a quoted Arguments string: .NET passes arguments
+            // verbatim on Unix, so single quotes would become part of the path.
+            var psi = new ProcessStartInfo("/bin/sh") { UseShellExecute = false, CreateNoWindow = true };
+            psi.ArgumentList.Add(script);
+            Process.Start(psi);
             return true;
         }
         catch (Exception ex)
@@ -458,14 +461,16 @@ public sealed class UpdaterService
             var sb = new System.Text.StringBuilder();
             sb.AppendLine("#!/bin/sh");
             sb.AppendLine("# PatchDiff update — waits for the running instance, installs, relaunches.");
-            sb.AppendLine("set -eu");
+            sb.AppendLine("set -u");
             sb.AppendLine($"while kill -0 {pid} 2>/dev/null; do sleep 1; done");
             sb.AppendLine($"rm -rf '{work}'");
             sb.AppendLine($"mkdir -p '{work}'");
-            sb.AppendLine($"tar -xzf '{archivePath}' -C '{work}'");
-            sb.AppendLine($"sh '{work}/install.sh' --dir '{installDir}' --yes");
-            sb.AppendLine($"rm -rf '{work}' '{archivePath}'");
-            sb.AppendLine($"nohup '{appExe}' >/dev/null 2>&1 &");
+            sb.AppendLine($"if tar -xzf '{archivePath}' -C '{work}' && sh '{work}/install.sh' --dir '{installDir}' --yes; then");
+            sb.AppendLine($"  rm -rf '{work}' '{archivePath}'");
+            sb.AppendLine("fi");
+            // Always relaunch, even if the install failed: leaving the user with no
+            // window is worse than running the previous version.
+            sb.AppendLine($"nohup '{appExe}' --show >/dev/null 2>&1 &");
             sb.AppendLine("rm -f \"$0\"");
             File.WriteAllText(script, sb.ToString());
             // Unix-only API: guard so the Windows build stays warning-free.
@@ -475,11 +480,11 @@ public sealed class UpdaterService
                     UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             }
 
-            Process.Start(new ProcessStartInfo("/bin/sh", $"'{script}'")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            });
+            // ArgumentList, not a quoted Arguments string: .NET passes arguments
+            // verbatim on Unix, so single quotes would become part of the path.
+            var psi = new ProcessStartInfo("/bin/sh") { UseShellExecute = false, CreateNoWindow = true };
+            psi.ArgumentList.Add(script);
+            Process.Start(psi);
             return true;
         }
         catch (Exception ex)
@@ -575,7 +580,7 @@ public sealed class UpdaterService
             cmd.AppendLine("rem record the apply result where the next launch will find it");
             cmd.AppendLine($"echo %RC% > \"{applyStatusFile}\"");
             cmd.AppendLine($"rmdir /s /q \"{stageTrimmed}\"");
-            cmd.AppendLine($"start \"\" \"{appExe}\"");
+            cmd.AppendLine($"start \"\" \"{appExe}\" --show");
             cmd.AppendLine("del \"%~f0\"");
             File.WriteAllText(script, cmd.ToString());
             try { File.WriteAllText(ApplyStatusFile, "pending"); } catch { }

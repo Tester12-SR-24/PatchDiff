@@ -19,7 +19,7 @@
         </Button>
       </Grid>
     </Border>
-    <Grid ColumnDefinitions="320,4,*">
+    <Grid ColumnDefinitions="320,1,*">
       <Grid RowDefinitions="*,Auto">
         <TextBox x:Name="TreeFilter" Watermark="Filter types…" Grid.Row="0" Margin="10,10,10,0"
                  TextChanged="OnFilter" Background="#0f141d" BorderBrush="#30394a" BorderThickness="1" Padding="10,6" FontSize="12" />
@@ -35,7 +35,9 @@
           </TreeView.DataTemplates>
         </TreeView>
       </Grid>
-      <GridSplitter Grid.Column="1" Width="4" Background="#283142" ResizeBehavior="CurrentAndNext" />
+      <!-- Fixed divider: the tree column is not resizable, so this is a plain line
+           rather than a GridSplitter (which showed a drag affordance on hover). -->
+      <Border Grid.Column="1" Background="#283142" />
       <TextBox x:Name="SourceText" Grid.Column="2" Margin="0,10,10,10" IsReadOnly="True" AcceptsReturn="True"
                TextWrapping="NoWrap" FontFamily="Consolas, DejaVu Sans Mono, monospace" FontSize="13" Background="#0f141d"
                BorderThickness="0" Padding="12,9" CaretBrush="#4cc2ff" Foreground="#cdd3de" />

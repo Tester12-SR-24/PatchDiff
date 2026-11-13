@@ -11,11 +11,18 @@ internal static class Program
     /// A sign-in launch starts hidden in the tray; a manual launch shows the window.</summary>
     public static bool LaunchedAtLogin { get; private set; }
 
+    /// <summary>Passed by the installer and the updater: always show the window, even
+    /// when the user normally starts PatchDiff hidden in the tray.</summary>
+    public const string ShowArgument = "--show";
+    public static bool ForceShow { get; private set; }
+
     [STAThread]
     public static void Main(string[] args)
     {
         LaunchedAtLogin = args.Any(a =>
             string.Equals(a, Services.AutoStart.LoginArgument, StringComparison.OrdinalIgnoreCase));
+        ForceShow = args.Any(a =>
+            string.Equals(a, ShowArgument, StringComparison.OrdinalIgnoreCase));
 
         // Apply the user-chosen data folder BEFORE any store touches the disk.
         // The env var (portable setups) always wins over the saved setting; settings

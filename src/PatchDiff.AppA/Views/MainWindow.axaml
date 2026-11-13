@@ -43,8 +43,8 @@
     <Border DockPanel.Dock="Top" Background="#151b25" BorderBrush="#283142" BorderThickness="0,0,0,1" Padding="18,13">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="16">
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <Border Width="36" Height="36" CornerRadius="9" Background="#263746" BorderBrush="#3b5861" BorderThickness="1">
-            <TextBlock Text="±" Foreground="#62ddd0" FontSize="25" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0" />
+          <Border Width="36" Height="36" CornerRadius="9" Background="#263746" BorderBrush="#3b5861" BorderThickness="1" ClipToBounds="True">
+            <Image Source="avares://PatchDiff/Assets/icon-512.png" Width="36" Height="36" Stretch="UniformToFill" />
           </Border>
           <StackPanel Spacing="1">
             <TextBlock Text="PatchDiff" FontWeight="Bold" FontSize="18" />
@@ -129,7 +129,7 @@
                     <Grid ColumnDefinitions="9,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="7" RowSpacing="4">
                       <Ellipse Width="7" Height="7" Fill="{Binding PillKind, Converter={StaticResource PillBrush}}" VerticalAlignment="Center" />
                       <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold"
-                                 TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                 TextWrapping="Wrap" MaxLines="2" VerticalAlignment="Center" />
                       <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Meta1}" FontSize="10" Foreground="#8491a5"
                                  TextTrimming="CharacterEllipsis" />
                       <Border Grid.Column="2" Grid.RowSpan="2" CornerRadius="9" Padding="7,3" Background="#222c39" VerticalAlignment="Center">
@@ -147,8 +147,6 @@
           <Border Grid.Row="0" Background="#10161f" BorderBrush="#283142" BorderThickness="0,0,0,1" Padding="15,9">
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
               <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                <TextBlock Text="WORKSPACE" Classes="section-label" VerticalAlignment="Center" />
-                <TextBlock Text="/" Foreground="#657287" />
                 <TextBlock Text="Diff workbench" FontSize="12" Foreground="#d5dce7" />
               </StackPanel>
               <Button Grid.Column="1" Classes="toolbar" Click="OnReloadAll">

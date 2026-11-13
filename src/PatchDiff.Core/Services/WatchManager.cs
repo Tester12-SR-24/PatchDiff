@@ -202,11 +202,11 @@ public sealed class WatchManager : IDisposable
             try
             {
                 SnapshotStore.Delete(w.Path);
-                Log($"Deleted baseline for {w.Name}.");
+                Log($"Deleted baseline for {w.DisplayName}.");
             }
             catch (Exception ex)
             {
-                Log($"Could not delete baseline for {w.Name}: {ex.Message}");
+                Log($"Could not delete baseline for {w.DisplayName}: {ex.Message}");
             }
         }
         Log($"Stopped watching {w.Path}");
@@ -366,7 +366,7 @@ public sealed class WatchManager : IDisposable
                     w.Status = "File missing";
                     w.PillKind = "error";
                     w.PillText = "MISSING";
-                    Log($"{w.Name} no longer exists at {w.Path} — watch kept, awaiting the file to return.");
+                    Log($"{w.DisplayName} no longer exists at {w.Path} — watch kept, awaiting the file to return.");
                 }
                 else
                 {
@@ -426,7 +426,7 @@ public sealed class WatchManager : IDisposable
                 w.Status = "Baseline upgraded";
                 w.PillKind = "ok";
                 w.PillText = "UP TO DATE";
-                Log($"Upgraded baseline snapshot for {w.Name} to the current format (member view now available).");
+                Log($"Upgraded baseline snapshot for {w.DisplayName} to the current format (member view now available).");
                 return;
             }
 
@@ -440,7 +440,7 @@ public sealed class WatchManager : IDisposable
                 w.PillText = "NEW BASELINE";
                 w.ChangeSummary = "";
                 BaselineCreated?.Invoke(w, null);
-                Log($"Baseline snapshot saved for {w.Name} v{newSnap.AssemblyVersion} ({newSnap.Types.Count} types).");
+                Log($"Baseline snapshot saved for {w.DisplayName} v{newSnap.AssemblyVersion} ({newSnap.Types.Count} types).");
                 return;
             }
 
@@ -453,7 +453,7 @@ public sealed class WatchManager : IDisposable
             {
                 var report = SnapshotStore.WriteHtmlReport(diff);
                 w.LastReportPath = report;
-                Log($"{w.Name} UPDATED (v{oldSnap.AssemblyVersion} → v{newSnap.AssemblyVersion}): " +
+                Log($"{w.DisplayName} UPDATED (v{oldSnap.AssemblyVersion} → v{newSnap.AssemblyVersion}): " +
                     $"+{diff.Added} added, −{diff.Removed} removed, ~{diff.Modified} modified. Report: {report}");
                 w.Status = $"Changed! +{diff.Added} −{diff.Removed} ~{diff.Modified}";
                 w.PillKind = "updated";
@@ -465,7 +465,7 @@ public sealed class WatchManager : IDisposable
             }
             else
             {
-                Log($"{w.Name} changed on disk but decompiled API is identical.");
+                Log($"{w.DisplayName} changed on disk but decompiled API is identical.");
                 w.Status = "Changed (identical decompile)";
                 w.PillKind = "ok";
                 w.PillText = "NO TYPE CHANGES";
@@ -477,7 +477,7 @@ public sealed class WatchManager : IDisposable
             w.Status = "Error";
             w.PillKind = "error";
             w.PillText = "ERROR";
-            Log($"Error checking {w.Name}: {ex.Message}");
+            Log($"Error checking {w.DisplayName}: {ex.Message}");
         }
         finally
         {

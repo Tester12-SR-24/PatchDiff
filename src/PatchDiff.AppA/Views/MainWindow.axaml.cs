@@ -73,7 +73,9 @@ public partial class MainWindow : Window
         // Sign-in launches start hidden in the tray; clicking the app icon (or any
         // manual launch) always shows the window unless the user opted into always
         // starting hidden.
-        StartHiddenToTray = Program.LaunchedAtLogin || _settings.StartMinimized;
+        // --show (installer / updater relaunch) always wins: the user just installed or
+        // updated and expects the window, even if they normally start hidden.
+        StartHiddenToTray = !Program.ForceShow && (Program.LaunchedAtLogin || _settings.StartMinimized);
         AutoStartItem.IsChecked = AutoStart.IsEnabled();
         AutoStartItem.IsVisible = AutoStart.IsSupported;
         CreateTrayIcon();
@@ -197,18 +199,20 @@ public partial class MainWindow : Window
             _latestDiff = diff;
             _baselineCache.Remove(w.Path);
             AddEvent("patched", "GAME PATCHED",
-                $"{w.Name} rewritten on disk → auto-diff completed ({diff.Added + diff.Removed + diff.Modified} type changes) → report saved");
+                $"{w.DisplayName} rewritten on disk → auto-diff completed ({diff.Added + diff.Removed + diff.Modified} type changes) → report saved",
+                w.Path);
             if (_mgr.AutoSaveHistory)
-                AddLog($"{w.Name}: diff ready and saved to history ({diff.Added + diff.Removed + diff.Modified} type changes).");
+                AddLog($"{w.DisplayName}: diff ready and saved to history ({diff.Added + diff.Removed + diff.Modified} type changes).");
             else
-                AddLog($"{w.Name}: diff ready — use Save to History in the diff tab to keep this version.");
+                AddLog($"{w.DisplayName}: diff ready — use Save to History in the diff tab to keep this version.");
             OpenDiffTab(w, diff);
             UpdateFooter();
         });
 
         _mgr.BaselineCreated += (w, _) => Dispatcher.UIThread.Post(() =>
             AddEvent("baseline", "BASELINE",
-                $"{w.Name} added to watch — baseline captured ({w.Meta1})"));
+                $"{w.DisplayName} added to watch — baseline captured ({w.Meta1})",
+                w.Path));
 
         _mgr.Watched.CollectionChanged += (_, _) => { RefreshWatchList(); UpdateFooter(); SaveAll(); };
     }
@@ -518,7 +522,7 @@ public partial class MainWindow : Window
         return path;
     }
 
-    void AddEvent(string kind, string badge, string message)
+    void AddEvent(string kind, string badge, string message, string path = "")
     {
         Timeline.Insert(0, new TimelineEvent
         {
@@ -526,6 +530,7 @@ public partial class MainWindow : Window
             Kind = kind,
             Badge = badge,
             Message = message,
+            Path = path,
         });
         while (Timeline.Count > 250)
             Timeline.RemoveAt(Timeline.Count - 1);
@@ -552,14 +557,36 @@ public partial class MainWindow : Window
 
     // ---------------- tabs ----------------
 
-    sealed class TabModel
+    /// <summary>Tab header + content. Notifies on changes because the Overview tab is
+    /// rebuilt in place when the selected assembly changes — without notification the
+    /// already-realized tab would keep showing the previous assembly.</summary>
+    sealed class TabModel : System.ComponentModel.INotifyPropertyChanged
     {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        void Raise(string name) =>
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+
         public bool IsClosable { get; set; } = true;
-        public string Header { get; set; } = "";
+
+        string _header = "";
+        public string Header
+        {
+            get => _header;
+            set { _header = value; Raise(nameof(Header)); }
+        }
+
         /// <summary>Identity of the tab's subject (kind + assembly path). Two watched
         /// assemblies can share a file name, so the header alone cannot dedupe tabs.</summary>
         public string Key { get; set; } = "";
-        public object Content { get; set; } = "";
+
+        object _content = "";
+        public object Content
+        {
+            get => _content;
+            set { _content = value; Raise(nameof(Content)); }
+        }
+
         public ICommand CloseCommand { get; }
         public MainWindow Owner { get; init; } = null!;
         public TabModel(MainWindow owner)
@@ -662,8 +689,11 @@ public partial class MainWindow : Window
     {
         var panel = new StackPanel { Spacing = 14, Margin = new Thickness(20, 18, 20, 14) };
         var selected = SelectedWatch;
-        var recentDiff = selected is not null && _lastDiffs.TryGetValue(selected.Path, out var selectedDiff)
-            ? selectedDiff
+        // When an assembly is selected the Overview describes THAT assembly only. Falling
+        // back to the newest diff of any assembly made the panel look frozen on the last
+        // patch while a different assembly was selected.
+        var recentDiff = selected is not null
+            ? (_lastDiffs.TryGetValue(selected.Path, out var selectedDiff) ? selectedDiff : null)
             : _latestDiff;
 
         var hero = new Border
@@ -681,8 +711,8 @@ public partial class MainWindow : Window
         heroText.Children.Add(new TextBlock { Text = "DIFF WORKBENCH", FontSize = 10, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#72dcd0")), HorizontalAlignment = HorizontalAlignment.Left });
         heroText.Children.Add(new TextBlock
         {
-            Text = recentDiff?.Title
-                ?? selected?.DisplayName
+            Text = selected?.DisplayName
+                ?? recentDiff?.Title
                 ?? "Your assembly workspace is ready",
             FontSize = 22, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Left,
         });
@@ -690,7 +720,9 @@ public partial class MainWindow : Window
         heroText.Children.Add(new TextBlock
         {
             Text = recentDiff is null
-                ? "Watch a Unity or .NET assembly to capture its baseline. PatchDiff will compare future updates automatically."
+                ? (selected is null
+                    ? "Watch a Unity or .NET assembly to capture its baseline. PatchDiff will compare future updates automatically."
+                    : $"{selected.Path} — no patch recorded yet. The baseline is captured; the next update will be diffed automatically.")
                 : $"{heroDeltas.Item1} lines added · {heroDeltas.Item2} removed · {heroDeltas.Item3} modified · baseline {ShortHash(recentDiff.OldSha)} → current {ShortHash(recentDiff.NewSha)}",
             FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#9aa8bb")), TextWrapping = TextWrapping.Wrap, MaxWidth = 640,
             HorizontalAlignment = HorizontalAlignment.Left,
@@ -726,13 +758,24 @@ public partial class MainWindow : Window
 
         var columns = new Grid { ColumnDefinitions = new ColumnDefinitions("1.15*,0.85*"), ColumnSpacing = 10 };
         var activity = CreateOverviewCard("Recent patch activity");
-        if (Timeline.Count == 0)
+        // With an assembly selected, show only that assembly's events. Session-wide
+        // events (no path) are always included.
+        List<TimelineEvent> events = selected is null
+            ? Timeline.ToList()
+            : Timeline.Where(e => e.Path.Length == 0 || e.Path == selected.Path).ToList();
+        if (events.Count == 0)
         {
-            activity.Children.Add(new TextBlock { Text = "No patch events yet. Add a DLL or folder to start watching.", FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#8996aa")), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5) });
+            activity.Children.Add(new TextBlock
+            {
+                Text = selected is null
+                    ? "No patch events yet. Add a DLL or folder to start watching."
+                    : $"No patch events for {selected.DisplayName} yet.",
+                FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#8996aa")), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5),
+            });
         }
         else
         {
-            foreach (var evt in Timeline.Take(5))
+            foreach (var evt in events.Take(5))
             {
                 var row = new StackPanel { Spacing = 2, Margin = new Thickness(0, 4) };
                 row.Children.Add(new TextBlock { Text = evt.Badge, FontSize = 10, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#69d9cd")) });
@@ -818,7 +861,7 @@ public partial class MainWindow : Window
             view.EnableSaveToHistory(() =>
             {
                 _mgr.SaveToHistory(w.Path);
-                AddLog($"{w.Name}: diff saved to history.");
+                AddLog($"{w.DisplayName}: diff saved to history.");
             });
         }
         AddTab($"Diff — {w.DisplayName}", view, key: $"diff|{w.Path}");
@@ -831,7 +874,7 @@ public partial class MainWindow : Window
         var snap = SnapshotStore.Load(w.Path);
         if (snap is null)
         {
-            AddLog($"No snapshot yet for {w.Name} — wait for the first analysis to finish.");
+            AddLog($"No snapshot yet for {w.DisplayName} — wait for the first analysis to finish.");
             return;
         }
         var view = new BrowseView(snap, w);
@@ -862,7 +905,7 @@ public partial class MainWindow : Window
         if (_lastDiffs.TryGetValue(w.Path, out var diff) && diff.HasChanges)
             OpenDiffTab(w, diff);
         else
-            AddLog($"No recorded changes for {w.Name} yet — waiting for the next update.");
+            AddLog($"No recorded changes for {w.DisplayName} yet — waiting for the next update.");
     }
 
     void OnBrowse(object? sender, RoutedEventArgs e)
@@ -910,7 +953,7 @@ public partial class MainWindow : Window
         string? report = File.Exists(w.LastReportPath) ? w.LastReportPath : null;
         if (report is null && _lastDiffs.TryGetValue(w.Path, out var diff) && diff.HasChanges)
             report = SnapshotStore.WriteHtmlReport(diff);
-        if (report is null) { AddLog($"No report yet for {w.Name}."); return; }
+        if (report is null) { AddLog($"No report yet for {w.DisplayName}."); return; }
         ShellOpen.Open(this, report);
     }
 
@@ -999,7 +1042,7 @@ public partial class MainWindow : Window
         if (targets.Count == 0)
             return;
         var msg = targets.Count == 1
-            ? $"Stop watching {targets[0].Name}?\n\nIts baseline snapshots and archived revisions will be deleted from this device."
+            ? $"Stop watching {targets[0].DisplayName}?\n\nIts baseline snapshots and archived revisions will be deleted from this device."
             : $"Stop watching all {targets.Count} DLLs?\n\nTheir baseline snapshots and archived revisions will be deleted from this device.";
         if (!await MessageBox.Confirm(this, msg, "Remove watch"))
         {
@@ -1022,13 +1065,13 @@ public partial class MainWindow : Window
         var w = SelectedWatch;
         if (w is null) { AddLog("Select an assembly in the rail first."); return; }
         var snap = SnapshotStore.Load(w.Path);
-        if (snap is null) { AddLog($"No snapshot yet for {w.Name}."); return; }
+        if (snap is null) { AddLog($"No snapshot yet for {w.DisplayName}."); return; }
 
         var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
         if (storage is null) return;
         var folders = await storage.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
         {
-            Title = $"Choose a parent folder for the exported {w.Name} source",
+            Title = $"Choose a parent folder for the exported {w.DisplayName} source",
             AllowMultiple = false,
         });
         if (folders.Count == 0) return;
@@ -1045,7 +1088,7 @@ public partial class MainWindow : Window
             var safe = string.Concat(t.FullName.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_'));
             File.WriteAllText(Path.Combine(dir, safe + ".cs"), t.Source);
         }
-        AddLog($"Exported decoded DLL for {w.Name} — {snap.Types.Count} C# classes → {dir}");
+        AddLog($"Exported decoded DLL for {w.DisplayName} — {snap.Types.Count} C# classes → {dir}");
         ShellOpen.Open(this, dir);
     }
 
@@ -1062,13 +1105,13 @@ public partial class MainWindow : Window
             var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(currentBytes));
             if (string.Equals(sha, baseline.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                AddLog($"{w.Name}: baseline is up to date (v{baseline.AssemblyVersion}, {baseline.Types.Count} types) — nothing to update.");
+                AddLog($"{w.DisplayName}: baseline is up to date (v{baseline.AssemblyVersion}, {baseline.Types.Count} types) — nothing to update.");
                 return;
             }
-            AddLog($"{w.Name}: file differs from baseline — updating baseline and re-analyzing…");
+            AddLog($"{w.DisplayName}: file differs from baseline — updating baseline and re-analyzing…");
         }
         _mgr.RequestCheck(w);
-        AddLog($"Re-checking {w.Name}…");
+        AddLog($"Re-checking {w.DisplayName}…");
     }
 
     static byte[]? TryReadFile(string path)
@@ -1089,7 +1132,7 @@ public partial class MainWindow : Window
         {
             if (IsBaselineUpToDate(w))
             {
-                AddLog($"{w.Name}: baseline is up to date.");
+                AddLog($"{w.DisplayName}: baseline is up to date.");
                 continue;
             }
             stale++;
@@ -1513,6 +1556,9 @@ public partial class MainWindow : Window
 public sealed class TimelineEvent
 {
     public string When { get; init; } = "";
+    /// <summary>Assembly this event belongs to, so the Overview can show only the
+    /// selected assembly's activity. Empty for session-wide events.</summary>
+    public string Path { get; init; } = "";
     public string Kind { get; init; } = "";
     public string Badge { get; init; } = "";
     public string Message { get; init; } = "";

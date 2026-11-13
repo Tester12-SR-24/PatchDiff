@@ -42,7 +42,7 @@ public partial class HistoryView : UserControl
     {
         InitializeComponent();
         _watch = watch;
-        TitleText.Text = $"Revision history — {watch.Name}";
+        TitleText.Text = $"Revision history — {watch.DisplayName}";
         var revs = new RevisionStore().List(watch.Path);
         var rows = revs.OrderByDescending(r => r.CapturedUtc)
             .Select(r => new RevRow { Info = r, DllPath = watch.Path })
