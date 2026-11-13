@@ -152,6 +152,21 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Called when a second launch hands over through the instance pipe: raise this
+    /// window, record the event and tell the user why no new window appeared.
+    /// </summary>
+    public void ReportAlreadyRunning()
+    {
+        ShowFromTray();
+        AddLog("PatchDiff is already running — this launch was closed and the open window was brought forward.");
+        MessageBox.Show(this,
+            "PatchDiff is already running.\n\n" +
+            "Only one copy can watch your assemblies at a time, so the second launch was closed " +
+            "and this window was brought forward.",
+            "Already running");
+    }
+
     public void ShowFromTray()
     {
         Show();

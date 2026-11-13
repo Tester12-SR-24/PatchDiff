@@ -44,6 +44,10 @@ public class App : Application
             {
                 desktop.MainWindow = main;
             }
+
+            // A second launch hands over through the instance pipe instead of starting a
+            // rival process: the open window comes forward and says why nothing new opened.
+            SingleInstance.StartServer(() => Dispatcher.UIThread.Post(main.ReportAlreadyRunning));
         }
         base.OnFrameworkInitializationCompleted();
     }
